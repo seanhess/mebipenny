@@ -1,4 +1,5 @@
 
+
 THINGS TO LEARN
 ---------------
 
@@ -11,7 +12,7 @@ THINGS TO LEARN
 
   Dijkstra: shortest path
   Bellman-Ford: shortest path (bails on negative cycle)
-
+  
 
 Chromakey (2) super simple
 
@@ -30,6 +31,17 @@ Wormholes (4/6) DIRECTED GRAPH (distance), negative cycles. got 4/6 with simple 
 X The Claw (4)
 
 
+TIMING
+------
+
+Wave 1: 19 points
+Wave 2: 16 points
+Wave 3: 15 points
+
+
+The Claw: 3/4 in 17 minutes (round to 20)
+
+that's 9 points an hour, or about 20 points total. Much better than last year.
 
 TODO
 ----
@@ -39,6 +51,16 @@ Learn Bellman-Ford
 Learn Ford Fulkerson
 
 Implement these and winnnn
+
+
+Knapsack Problem
+----------------
+
+Items have a value, and a weight
+Maximize value
+0-1 problem - you can't have copies
+bounded - restrict to c copies of each one
+unbounded - as many copies as you want
 
 
 Graph Theory

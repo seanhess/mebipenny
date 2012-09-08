@@ -1,11 +1,12 @@
 
 min = _.min
 clone = _.clone
+sortBy = _.sortBy
 
 readReverseLines (lines) ->
   countries = readCountries lines
   #console.log "COUNTRIES", graphToDijkstraCompatible(countries[0].cities)
-  #console.log "CCC", countries[0].cities
+  console.log "CCC", countries[0].cities
   distances = countries.map countryDistance
   #console.log "CHECK", distances
   writeOutputs distances
@@ -37,6 +38,51 @@ toCountry = (coins, numCities, roads) ->
 city = (cities, id) ->
   cities[id] ?= []
   return cities[id]
+
+
+
+shortestDistance = (cities, destId, coins) ->
+  distances = dijkstra cities, (cities.vertex 1), (cities.vertex destId)
+  console.log "DISTANCES", distances
+  return cities.vertex(destId).distance
+
+
+sortDistance = (vertices) ->
+  sortBy vertices, (vertex) -> vertex.distance
+
+dijkstra = (graph, source, target) ->
+  for v in graph.vertices
+    v.distance = Infinity
+    v.previous = null
+
+  source.distance = 0
+  queue = sortDistance graph.vertices.concat()
+
+  while queue.length
+    u = queue.shift()
+
+    if u is target
+      return target
+
+    if u.distance is Infinity
+      return null
+
+    for uv in u.edges
+      v = graph.vertex uv.to
+      dist = u.distance + uv.weight
+      if dist < v.distance
+        v.distance = dist
+        v.previous = u
+        queue = sortDistance queue
+
+  #return graph.vertices
+  return target
+
+
+
+
+
+
 
 
 # gives the shortest possible distance YOU CAN AFFORD
@@ -144,6 +190,8 @@ ATTEMPT 3
 
 # I know where I want to end up
 # I could calculate distances from that node... start at the destination
+
+###
 shortestDistance = (graph, destId, coins) ->
 
   walk = (vertex, coins, visited = {}) ->
@@ -167,30 +215,4 @@ shortestDistance = (graph, destId, coins) ->
 
   walk (graph.vertex 1), coins
 
-  #if coins < 0
-    #return -1
-
-  #if currentId is goalId
-    #return 0
-
-  #paths = []
-
-  #currentCity = city cities, currentId
-
-  #for road in currentCity
-    ## source, dest, toll, length
-    ## I know the distance here
-
-    #if visited[road.id] then continue
-    #visited[road.id] = true
-
-    #nextDistance = shortestDistance(cities, goalId, road.dest, (coins - road.toll), visited)
-    #console.log "SHORTEST #{road.id} distance=#{nextDistance}", road.length
-    #if nextDistance isnt -1
-      #paths.push nextDistance + road.length
-
-  #if not paths.length
-    #return -1
-
-  #return min paths
-
+###

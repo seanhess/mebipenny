@@ -35,17 +35,17 @@ readUniverse = (lines) ->
 ###
 canGoBackForever = (graph) ->
 
-  goesBack = (vertex, dt) ->
-    if vertex.visited?
-      if dt < vertex.visited
+  goesBack = (vertex, dt, visited = {}) ->
+    if visited[vertex.key]?
+      if dt < visited[vertex.key]
         return true
 
       return false
 
-    vertex.visited = dt
+    visited[vertex.key] = dt
 
     for edge in vertex.edges
-      canBack = goesBack (graph.vertex edge.to), (dt + edge.weight)
+      canBack = goesBack (graph.vertex edge.to), (dt + edge.weight), visited
       if canBack then return true
 
     return false
