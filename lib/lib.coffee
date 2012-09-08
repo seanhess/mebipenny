@@ -74,7 +74,7 @@ toObject = curry (names, line) ->
   return object
 
 
-nextLines = (reverseLines, n, parser) ->
+readLines = nextLines = (reverseLines, n, parser) ->
   i = 0
   lines = []
   while i++ < n
@@ -119,8 +119,14 @@ lines = (string) -> string.split(/\n/).filter(notEmpty)
 ## GRAPH #############################################
 
 class Graph
-  constructor: (@edges = [], @vertices = {}) ->
-  vertex: (key) -> @vertices[key]
+  constructor: (@edges = [], @vertices = []) ->
+    @graph = {}
+
+  vertex: (key) ->
+    if not @graph[key]?
+      @graph[key] = v = new Vertex key
+      @vertices.push v
+    @graph[key]
 
 class Vertex
   constructor: (@key, @edges = []) ->
@@ -130,12 +136,12 @@ class Edge
 
 
 toGraph = (edges) ->
-  vertices = {}
+  graph = new Graph edges
   for edge in edges
-    vertices[edge.from] ?= new Vertex edge.from
-    vertices[edge.to] ?= new Vertex edge.to
-    vertices[edge.from].edges.push edge
-  return new Graph edges, vertices
+    from = graph.vertex edge.from
+    to = graph.vertex edge.to
+    from.edges.push edge
+  return graph
 
 # graph = 
 #   a: {b: 10, d: 1},
@@ -179,7 +185,7 @@ graphToDijkstraCompatible = (graph) ->
 
 
 
-Infinity = NaN
+Infinity = 2e+10308
 
 # DIJKSTRA - shortest path
 # calculates the distance to every vertex in the graph
