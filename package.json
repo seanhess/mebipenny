@@ -1,0 +1,14 @@
+{
+  "name": "mebipenny",
+  "version": "0.0.0",
+  "description": "ERROR: No README.md file found!",
+  "main": "underscore.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": "",
+  "author": "",
+  "license": "BSD",
+  "dependencies": {
+  }
+}
