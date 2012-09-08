@@ -25,7 +25,7 @@ X Roads (6) DIRECTED GRAPH (distance) visited problem?
 
 X Spelunking (6) DIRECTED GRAPH (flow)
 
-X Wormholes (6) DIRECTED GRAPH (distance)
+Wormholes (4/6) DIRECTED GRAPH (distance), negative cycles. got 4/6 with simple global visited hash
 
 X The Claw (4)
 

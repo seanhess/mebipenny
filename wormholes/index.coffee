@@ -5,10 +5,13 @@ clone = _.clone
 # 3 correct, and 3 timed out... hmmm. 
 
 readReverseLines (lines) ->
-  numUniverses = nextLine toInt, lines
+
+  [numUniverses] = readLine toInts, lines
   universes = readObjects lines, numUniverses, readUniverse
+
   results = universes.map (universe) ->
     canGoBackForever universe.graph
+
   yn = results.map (bool) -> if bool then "Y" else "N"
   writeOutputs yn
 
@@ -25,44 +28,36 @@ readUniverse = (lines) ->
 
 # This method gets 4/6 without timing out
 # cloning gets 3/6 with 3 timeouts
-canGoBackForever = (graph, currentNode = 1, dt = 0, visited = {}) ->
 
-  if visited[currentNode]
-    if dt < visited[currentNode]
-      return true
+# IN GENERAL: implement your recursions like this: so you can memoize internal stuff if you want
+# except that's really bad, since visited is global...
+
+canGoBackForever = (graph) ->
+
+  console.log "HI", graphToDijkstraCompatible(graph)
+  
+  goesBack = (vertex, dt) ->
+    if vertex.visited?
+      if dt < vertex.visited
+        return true
+
+      return false
+
+    vertex.visited = dt
+
+    for edge in vertex.edges
+      canBack = goesBack (graph.vertex edge.to), (dt + edge.weight)
+      if canBack then return true
 
     return false
 
-  visited[currentNode] = dt
-
-  for edge in graph[currentNode]
-    canBack = canGoBackForever graph, edge.to, (dt + edge.value), visited
-    if canBack then return true
-
-  return false
+  return goesBack (graph.vertex 1), 0
 
 
-
-
-
-# Try an iterative depth-first search?
+# NO Try an iterative depth-first search?
 # Try the algorithm they recommended
 
+# I need to find negative cycles in the graph
 
-
-# how do you prevent loops? (with memoize!)
-# if your calculated value is different from the memoized version?
-# you don't even GET a value for that node though
-
-# Need to detect negative cycles
-
-
-# Break graph into strongly connected components
-
-amountBackInTime = (graph, currentNode = 1) ->
-
-  for edge in graph[currentNode]
-    subDt = amountBackInTime graph, edge.to
-    totalDt = edge.value
 
 

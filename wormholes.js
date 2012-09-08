@@ -1057,8 +1057,184 @@
   };
 
 }).call(this);
+/******************************************************************************
+ * Created 2008-08-19.
+ *
+ * Dijkstra path-finding functions. Adapted from the Dijkstar Python project.
+ *
+ * Copyright (C) 2008
+ *   Wyatt Baldwin <self@wyattbaldwin.com>
+ *   All rights reserved
+ *
+ * Licensed under the MIT license.
+ *
+ *   http://www.opensource.org/licenses/mit-license.php
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ *****************************************************************************/
+var dijkstra = {
+  single_source_shortest_paths: function(graph, s, d) {
+    // Predecessor map for each node that has been encountered.
+    // node ID => predecessor node ID
+    var predecessors = {};
+
+    // Costs of shortest paths from s to all nodes encountered.
+    // node ID => cost
+    var costs = {};
+    costs[s] = 0;
+
+    // Costs of shortest paths from s to all nodes encountered; differs from
+    // `costs` in that it provides easy access to the node that currently has
+    // the known shortest path from s.
+    // XXX: Do we actually need both `costs` and `open`?
+    var open = dijkstra.PriorityQueue.make();
+    open.push(s, 0);
+
+    var closest,
+        u,
+        cost_of_s_to_u,
+        adjacent_nodes,
+        cost_of_e,
+        cost_of_s_to_u_plus_cost_of_e,
+        cost_of_s_to_v,
+        first_visit;
+    while (open) {
+      // In the nodes remaining in graph that have a known cost from s,
+      // find the node, u, that currently has the shortest path from s.
+      closest = open.pop();
+      u = closest.value;
+      cost_of_s_to_u = closest.cost;
+
+      // Get nodes adjacent to u...
+      adjacent_nodes = graph[u] || {};
+
+      // ...and explore the edges that connect u to those nodes, updating
+      // the cost of the shortest paths to any or all of those nodes as
+      // necessary. v is the node across the current edge from u.
+      for (var v in adjacent_nodes) {
+        // Get the cost of the edge running from u to v.
+        cost_of_e = adjacent_nodes[v];
+
+        // Cost of s to u plus the cost of u to v across e--this is *a*
+        // cost from s to v that may or may not be less than the current
+        // known cost to v.
+        cost_of_s_to_u_plus_cost_of_e = cost_of_s_to_u + cost_of_e;
+
+        // If we haven't visited v yet OR if the current known cost from s to
+        // v is greater than the new cost we just found (cost of s to u plus
+        // cost of u to v across e), update v's cost in the cost list and
+        // update v's predecessor in the predecessor list (it's now u).
+        cost_of_s_to_v = costs[v];
+        first_visit = (typeof costs[v] === 'undefined');
+        if (first_visit || cost_of_s_to_v > cost_of_s_to_u_plus_cost_of_e) {
+          costs[v] = cost_of_s_to_u_plus_cost_of_e;
+          open.push(v, cost_of_s_to_u_plus_cost_of_e);
+          predecessors[v] = u;
+        }
+
+        // If a destination node was specified and we reached it, we're done.
+        if (v === d) {
+          open = null;
+          break;
+        }
+      }
+    }
+
+    if (typeof costs[d] === 'undefined') {
+      var msg = ['Could not find a path from ', s, ' to ', d, '.'].join('');
+      throw new Error(msg);
+    }
+
+    return predecessors;
+  },
+
+  extract_shortest_path_from_predecessor_list: function(predecessors, d) {
+    var nodes = [];
+    var u = d;
+    var predecessor;
+    while (u) {
+      nodes.push(u);
+      predecessor = predecessors[u];
+      u = predecessors[u];
+    }
+    nodes.reverse();
+    return nodes;
+  },
+
+  find_path: function(graph, s, d) {
+    var predecessors = dijkstra.single_source_shortest_paths(graph, s, d);
+    return dijkstra.extract_shortest_path_from_predecessor_list(
+      predecessors, d);
+  },
+
+  /**
+   * A very naive priority queue implementation.
+   */
+  PriorityQueue: {
+    make: function (opts) {
+      var T = dijkstra.PriorityQueue,
+          t = {},
+          opts = opts || {},
+          key;
+      for (key in T) {
+        t[key] = T[key];
+      }
+      t.queue = [];
+      t.sorter = opts.sorter || T.default_sorter;
+      return t;
+    },
+
+    default_sorter: function (a, b) {
+      return a.cost - b.cost;
+    },
+
+    /**
+     * Add a new item to the queue and ensure the highest priority element
+     * is at the front of the queue.
+     */
+    push: function (value, cost) {
+      var item = {value: value, cost: cost};
+      this.queue.push(item);
+      this.queue.sort(this.sorter);
+    },
+
+    /**
+     * Return the highest priority element in the queue.
+     */
+    pop: function () {
+      return this.queue.shift();
+    }
+  },
+
+  test: function() {
+    // A B C
+    // D E F
+    // G H I
+    graph = {
+      a: {b: 10, d: 1},
+      b: {a: 1, c: 1, e: 1},
+      c: {b: 1, f: 1},
+      d: {a: 1, e: 1, g: 1},
+      e: {b: 1, d: 1, f: 1, h: 1},
+      f: {c: 1, e: 1, i: 1},
+      g: {d: 1, h: 1},
+      h: {e: 1, g: 1, i: 1},
+      i: {f: 1, h: 1}
+    };
+    var path = dijkstra.find_path(graph, 'a', 'i');
+    if (path.join() !== ['a', 'd', 'e', 'f', 'i'].join()) {
+      throw new Error('Path finding error!');
+    }
+  }
+};
 // Generated by CoffeeScript 1.3.3
-var curry, lines, nextLine, nextLines, notEmpty, parseGraphEdge, readObjects, readReverseLines, readStdin, toArray, toGraph, toInt, toObject, toString, words, writeOutputs, _,
+var Edge, Graph, Infinity, Vertex, curry, graphToDijkstraCompatible, lines, mapn, nextLine, nextLines, notEmpty, parseGraphEdge, readLine, readObjects, readReverseLines, readStdin, toArray, toGraph, toInt, toInts, toObject, toString, words, writeOutputs, _,
   __slice = [].slice;
 
 _ = module.exports;
@@ -1120,7 +1296,7 @@ readReverseLines = function(cb) {
   });
 };
 
-nextLine = curry(function(parser, reverseLines) {
+nextLine = readLine = curry(function(parser, reverseLines) {
   var line;
   line = reverseLines.pop();
   return parser(line);
@@ -1137,6 +1313,8 @@ toString = function(i) {
 toArray = curry(function(parser, line) {
   return words(line).map(parser);
 });
+
+toInts = toArray(toInt);
 
 toObject = curry(function(names, line) {
   var i, name, object, value, values, _i, _ref;
@@ -1170,22 +1348,19 @@ readObjects = function(reverseLines, n, linesParser) {
   return objects;
 };
 
-parseGraphEdge = toObject(["from", "to", "value"]);
+mapn = function(n, f) {
+  var i, objects, _i;
+  objects = [];
+  for (i = _i = 0; 0 <= n ? _i < n : _i > n; i = 0 <= n ? ++_i : --_i) {
+    objects.push(f());
+  }
+  return objects;
+};
+
+parseGraphEdge = toObject(["from", "to", "weight"]);
 
 toGraph = function(edges) {
-  var edge, graph, _i, _len, _name, _name1, _ref, _ref1;
-  graph = {};
-  for (_i = 0, _len = edges.length; _i < _len; _i++) {
-    edge = edges[_i];
-    if ((_ref = graph[_name = edge.from]) == null) {
-      graph[_name] = [];
-    }
-    if ((_ref1 = graph[_name1 = edge.to]) == null) {
-      graph[_name1] = [];
-    }
-    graph[edge.from].push(edge);
-  }
-  return graph;
+  return new Graph(edges);
 };
 
 words = function(string) {
@@ -1195,14 +1370,137 @@ words = function(string) {
 lines = function(string) {
   return string.split(/\n/).filter(notEmpty);
 };
+
+Graph = (function() {
+
+  function Graph(edges, vertices) {
+    this.edges = edges != null ? edges : [];
+    this.vertices = vertices != null ? vertices : {};
+  }
+
+  Graph.prototype.vertex = function(key) {
+    return this.vertices[key];
+  };
+
+  return Graph;
+
+})();
+
+Vertex = (function() {
+
+  function Vertex(key, edges) {
+    this.key = key;
+    this.edges = edges != null ? edges : [];
+  }
+
+  return Vertex;
+
+})();
+
+Edge = (function() {
+
+  function Edge(from, to, value) {
+    this.from = from;
+    this.to = to;
+    this.value = value;
+  }
+
+  return Edge;
+
+})();
+
+toGraph = function(edges) {
+  var edge, vertices, _i, _len, _name, _name1, _ref, _ref1;
+  vertices = {};
+  for (_i = 0, _len = edges.length; _i < _len; _i++) {
+    edge = edges[_i];
+    if ((_ref = vertices[_name = edge.from]) == null) {
+      vertices[_name] = new Vertex(edge.from);
+    }
+    if ((_ref1 = vertices[_name1 = edge.to]) == null) {
+      vertices[_name1] = new Vertex(edge.to);
+    }
+    vertices[edge.from].edges.push(edge);
+  }
+  return new Graph(edges, vertices);
+};
+
+graphToDijkstraCompatible = function(graph) {
+  var dgraph, dv, key, v, _ref;
+  dgraph = {};
+  _ref = graph.vertices;
+  for (key in _ref) {
+    v = _ref[key];
+    graph[v.key] = dv = {};
+    v.eachEdge(function(e) {
+      return dv[e.to] = e.weight;
+    });
+  }
+  return graph;
+};
+
+/*
+   arrays
+  allVertices: () -> 
+    verts = []
+    for key, vertex of @vertices
+      verts.push vertex
+    return verts
+*/
+
+
+Infinity = NaN;
+
+/*
+
+# BELLMAN-FORD - shortest path, slower, but works on negative weights
+# calculates the distance TO every vertex in the graph
+
+# So I DO need a big list of all the edges
+# because the algorithm goes through all the edges each time
+
+# Vertices: just an array of objects. Source must be one of its members
+
+# {from, to, weight}
+# from, to = vertex
+
+bellmanFord = (graph, source) ->
+ # This implementation takes in a graph, represented as lists of vertices
+ # and edges, and modifies the vertices so that their distance and
+ # predecessor attributes store the shortest paths.
+
+ # Step 1: initialize graph
+ graph.eachVertex (v) ->
+   if v is source then v.distance = 0
+   else v.distance = Infinity
+   v.predecessor = null
+
+ # Step 2: relax edges repeatedly
+ for i in [1...graph.count()-1]
+   graph.eachEdge (uv) -> # uv is the edge from u to v
+     u = graph.vertex uv.from
+     v = graph.vertex uv.to
+     if u.distance + uv.weight < v.distance
+       v.distance = u.distance + uv.weight
+       v.predecessor = u
+
+ # Step 3: check for negative-weight cycles
+ for uv in edges
+   u = uv.from
+   v = uv.to
+   if u.distance + uv.weight < v.distance
+     return new Error "Graph contains a negative-weight cycle"
+
+  return graph
+*/
 // Generated by CoffeeScript 1.3.3
-var amountBackInTime, canGoBackForever, clone, readUniverse;
+var canGoBackForever, clone, readUniverse;
 
 clone = _.clone;
 
 readReverseLines(function(lines) {
   var numUniverses, results, universes, yn;
-  numUniverses = nextLine(toInt, lines);
+  numUniverses = readLine(toInts, lines)[0];
   universes = readObjects(lines, numUniverses, readUniverse);
   results = universes.map(function(universe) {
     return canGoBackForever(universe.graph);
@@ -1228,46 +1526,26 @@ readUniverse = function(lines) {
   };
 };
 
-canGoBackForever = function(graph, currentNode, dt, visited) {
-  var canBack, edge, _i, _len, _ref;
-  if (currentNode == null) {
-    currentNode = 1;
-  }
-  if (dt == null) {
-    dt = 0;
-  }
-  if (visited == null) {
-    visited = {};
-  }
-  if (visited[currentNode]) {
-    if (dt < visited[currentNode]) {
-      return true;
+canGoBackForever = function(graph) {
+  var goesBack;
+  goesBack = function(vertex, dt) {
+    var canBack, edge, _i, _len, _ref;
+    if (vertex.visited != null) {
+      if (dt < vertex.visited) {
+        return true;
+      }
+      return false;
+    }
+    vertex.visited = dt;
+    _ref = vertex.edges;
+    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+      edge = _ref[_i];
+      canBack = goesBack(graph.vertex(edge.to), dt + edge.weight);
+      if (canBack) {
+        return true;
+      }
     }
     return false;
-  }
-  visited[currentNode] = dt;
-  _ref = graph[currentNode];
-  for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-    edge = _ref[_i];
-    canBack = canGoBackForever(graph, edge.to, dt + edge.value, visited);
-    if (canBack) {
-      return true;
-    }
-  }
-  return false;
-};
-
-amountBackInTime = function(graph, currentNode) {
-  var edge, subDt, totalDt, _i, _len, _ref, _results;
-  if (currentNode == null) {
-    currentNode = 1;
-  }
-  _ref = graph[currentNode];
-  _results = [];
-  for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-    edge = _ref[_i];
-    subDt = amountBackInTime(graph, edge.to);
-    _results.push(totalDt = edge.value);
-  }
-  return _results;
+  };
+  return goesBack(graph.vertex(1), 0);
 };

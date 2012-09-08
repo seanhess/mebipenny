@@ -54,13 +54,14 @@ readReverseLines = (cb) ->
     cb lines(data).reverse()
 
 # descructive for performance
-nextLine = curry (parser, reverseLines) ->
+nextLine = readLine = curry (parser, reverseLines) ->
   line = reverseLines.pop()
   parser(line)
 
 toInt = (i) -> parseInt i, 10
 toString = (i) -> i
 toArray = curry (parser, line) -> words(line).map(parser)
+toInts = toArray toInt
 
 # convers to integers
 toObject = curry (names, line) ->
@@ -88,21 +89,24 @@ readObjects = (reverseLines, n, linesParser) ->
   return objects
 
 
+# does something n times and returns the results as an array
+mapn = (n, f) ->
+  objects = []
+  for i in [0...n]
+    objects.push f()
+  return objects
 
-parseGraphEdge = toObject(["from", "to", "value"])
+
+
+parseGraphEdge = toObject(["from", "to", "weight"])
 
 # builds a uni-directional graph
-# expects: [{from: to: value:}]
+# expects: [{from: to: weight:}]
 # returns: {
-#   1: [{from: to: value:}]
+#   1: [{from: to: weight:}]
 # }
-toGraph = (edges) ->
-  graph = {}
-  for edge in edges
-    graph[edge.from] ?= []
-    graph[edge.to] ?= []
-    graph[edge.from].push edge
-  return graph
+
+toGraph = (edges) -> return new Graph edges
 
 # PREP / PARSE DATA and problems, then solve them
 
@@ -112,4 +116,122 @@ lines = (string) -> string.split(/\n/).filter(notEmpty)
 
 
 
+## GRAPH #############################################
 
+class Graph
+  constructor: (@edges = [], @vertices = {}) ->
+  vertex: (key) -> @vertices[key]
+
+class Vertex
+  constructor: (@key, @edges = []) ->
+
+class Edge
+  constructor: (@from, @to, @value) ->
+
+
+toGraph = (edges) ->
+  vertices = {}
+  for edge in edges
+    vertices[edge.from] ?= new Vertex edge.from
+    vertices[edge.to] ?= new Vertex edge.to
+    vertices[edge.from].edges.push edge
+  return new Graph edges, vertices
+
+# graph = 
+#   a: {b: 10, d: 1},
+#   b: {a: 1, c: 1, e: 1},
+
+graphToDijkstraCompatible = (graph) ->
+  dgraph = {}
+  for key, v of graph.vertices
+    dgraph[v.key] = dv = {}
+    for e in v.edges
+      dv[e.to] = e.weight
+  return dgraph
+
+
+
+###
+   arrays
+  allVertices: () -> 
+    verts = []
+    for key, vertex of @vertices
+      verts.push vertex
+    return verts
+
+###
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Infinity = NaN
+
+# DIJKSTRA - shortest path
+# calculates the distance to every vertex in the graph
+# dijkstra is faster, but doesn't work for negative edge weights
+# basically does breadth first on each node, marking it as visited once all neighbors are checked
+# slowly marks things with tentative distances, and replaces them if they get lower
+# http://en.wikipedia.org/wiki/Dijkstra%27s_algorithm
+# https://bitbucket.org/wyatt/dijkstra.js/src/fb6c30a3cebd/dijkstra.js
+# see: dijkstra.js
+
+
+
+
+###
+
+# BELLMAN-FORD - shortest path, slower, but works on negative weights
+# calculates the distance TO every vertex in the graph
+
+# So I DO need a big list of all the edges
+# because the algorithm goes through all the edges each time
+
+# Vertices: just an array of objects. Source must be one of its members
+
+# {from, to, weight}
+# from, to = vertex
+
+bellmanFord = (graph, source) ->
+ # This implementation takes in a graph, represented as lists of vertices
+ # and edges, and modifies the vertices so that their distance and
+ # predecessor attributes store the shortest paths.
+
+ # Step 1: initialize graph
+ graph.eachVertex (v) ->
+   if v is source then v.distance = 0
+   else v.distance = Infinity
+   v.predecessor = null
+
+ # Step 2: relax edges repeatedly
+ for i in [1...graph.count()-1]
+   graph.eachEdge (uv) -> # uv is the edge from u to v
+     u = graph.vertex uv.from
+     v = graph.vertex uv.to
+     if u.distance + uv.weight < v.distance
+       v.distance = u.distance + uv.weight
+       v.predecessor = u
+
+ # Step 3: check for negative-weight cycles
+ for uv in edges
+   u = uv.from
+   v = uv.to
+   if u.distance + uv.weight < v.distance
+     return new Error "Graph contains a negative-weight cycle"
+
+  return graph
+###
