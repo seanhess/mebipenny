@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# bakes your files together and runs them with an input, for quick testing
+# must be run from the root of this repo (lib/* needs to be there)
+# mbrun fib/fib.coffee fib/stdin1.txt
+
+file=$1
+input=$2
+bake lib/* "$file" > /tmp/mbrun.js
+node /tmp/mbrun.js < $input

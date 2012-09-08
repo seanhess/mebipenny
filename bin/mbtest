@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# will run the thing, and show diff output
+# must be run from the root of this repo (lib/* needs to be there)
+# mbtest fib/fib.coffee fib/stdin1.txt fib/stdout1.txt
+
+file=$1
+input=$2
+expected=$3
+mbrun $file $input | indiff $expected

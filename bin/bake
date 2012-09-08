@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# USAGE: bake lib/* bob.coffee asdf.js woot.coffee > somefile.js
+# put as many arguments as you want. They'll be combined in order into a single .js file
+
+for file in "$@"
+do
+  if [[ "$file" =~ ".coffee" ]]
+  then
+    coffee -cpb "$file"
+  else
+    cat "$file"
+  fi
+done
+
+

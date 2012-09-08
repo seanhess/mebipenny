@@ -1,0 +1,15 @@
+#!/bin/bash
+
+file=$1
+
+# first, copy the stdin to a file
+tmp=/tmp/diff
+rm $tmp
+while IFS= read -r line; do
+  # echo "$line"
+  echo "$line" >> $tmp
+done
+
+# now, opendiff it with the provided input
+sdiff $file $tmp
+
