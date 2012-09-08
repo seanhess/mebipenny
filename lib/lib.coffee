@@ -212,32 +212,35 @@ Infinity = 2e+10308
 # {from, to, weight}
 # from, to = vertex
 
-bellmanFord = (graph, source) ->
- # This implementation takes in a graph, represented as lists of vertices
- # and edges, and modifies the vertices so that their distance and
- # predecessor attributes store the shortest paths.
-
- # Step 1: initialize graph
- graph.eachVertex (v) ->
-   if v is source then v.distance = 0
-   else v.distance = Infinity
-   v.predecessor = null
-
- # Step 2: relax edges repeatedly
- for i in [1...graph.count()-1]
-   graph.eachEdge (uv) -> # uv is the edge from u to v
-     u = graph.vertex uv.from
-     v = graph.vertex uv.to
-     if u.distance + uv.weight < v.distance
-       v.distance = u.distance + uv.weight
-       v.predecessor = u
-
- # Step 3: check for negative-weight cycles
- for uv in edges
-   u = uv.from
-   v = uv.to
-   if u.distance + uv.weight < v.distance
-     return new Error "Graph contains a negative-weight cycle"
-
-  return graph
 ###
+
+bellmanFord = (graph, source) ->
+  for v in graph.vertices
+    if v is source
+      v.distance = 0
+    else
+      v.distance = Infinity
+
+  #console.log "TEST", graph
+
+  for i in [1...graph.vertices.length]
+    for uv in graph.edges
+      u = graph.vertex uv.from
+      v = graph.vertex uv.to
+      #console.log "checking: #{uv.from} -> #{uv.to}" #, (u.distance + uv.weight), v.distance, " ::: ", u.coins, uv.toll
+      if u.distance + uv.weight < v.distance
+        #console.log " yes"
+        v.distance = u.distance + uv.weight
+        #v.coins = u.coins - uv.toll
+      #else console.log " no"
+
+  #console.log graph.vertices
+
+  for uv in graph.edges
+    u = graph.vertex uv.from
+    v = graph.vertex uv.to
+    if u.distance + uv.weight < v.distance
+      return false
+
+  return graph.vertices
+

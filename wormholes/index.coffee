@@ -32,10 +32,9 @@ readUniverse = (lines) ->
 # IN GENERAL: implement your recursions like this: so you can memoize internal stuff if you want
 # except that's really bad, since visited is global...
 
+###
 canGoBackForever = (graph) ->
 
-  console.log "HI", graphToDijkstraCompatible(graph)
-  
   goesBack = (vertex, dt) ->
     if vertex.visited?
       if dt < vertex.visited
@@ -52,7 +51,12 @@ canGoBackForever = (graph) ->
     return false
 
   return goesBack (graph.vertex 1), 0
+###
 
+# gets 6/6 (well, I know how to detect negative cycles at least
+canGoBackForever = (graph) ->
+  hasNegativeCycle = not bellmanFord graph, graph.vertex(1)
+  return hasNegativeCycle
 
 # NO Try an iterative depth-first search?
 # Try the algorithm they recommended
