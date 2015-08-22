@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedLists #-}
 
-module BiologicalEntropy where
+module Main where
 
 import Control.Monad (when)
 import Control.Monad.State (State, get, gets, modify, runState, put)
