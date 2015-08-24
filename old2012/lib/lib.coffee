@@ -51,7 +51,8 @@ notEmpty = (item) -> item
 # to access quickly later. Make sure you read them with these parsing functions!!
 readReverseLines = (cb) ->
   readStdin (data) ->
-    cb lines(data).reverse()
+    ls = lines(data).reverse()
+    cb ls
 
 # descructive for performance
 nextLine = readLine = curry (parser, reverseLines) ->
@@ -62,6 +63,9 @@ toInt = (i) -> parseInt i, 10
 toString = (i) -> i
 toArray = curry (parser, line) -> words(line).map(parser)
 toInts = toArray toInt
+
+readInts = readLine(toInts)
+readString = readLine(toString)
 
 # convers to integers
 toObject = curry (names, line) ->
