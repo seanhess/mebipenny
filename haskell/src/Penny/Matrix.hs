@@ -1,7 +1,7 @@
 
 module Penny.Matrix where
 
--- PASTE IMPORTS ----------------------------------------------------
+-- MATRIX IMPORTS ----------------------------------------------------
 import Data.Vector (Vector)
 import Data.Maybe (fromMaybe)
 import Data.Monoid ((<>))
@@ -10,12 +10,12 @@ import qualified Data.Vector as V
 ---------------------------------------------------------------------
 
 
--- PASTE FUNCTIONS --------------------------------------------------
+-- MATRIX FUNCTIONS --------------------------------------------------
 newtype Matrix a = Matrix (Vector (Vector a))
                  deriving (Eq)
 
 instance (MShow a) => Show (Matrix a) where
-    show m = L.intercalate "\n" $ map showRow (matrixToList m)
+    show m = "\n" <> (L.intercalate "\n" $ map showRow (matrixToList m))
       where
         showRow :: MShow a => [a] -> String
         showRow r =(concat (map mshow r))
@@ -35,6 +35,18 @@ instance MShow Bool where
 
 (!) :: Matrix a -> (Int, Int) -> a
 (Matrix m) ! (x, y) = m V.! y V.! x
+
+(!?) :: Matrix a -> (Int, Int) -> Maybe a
+(Matrix m) !? (x, y) = do
+  row <- (m V.!? y)
+  val <- row V.!? x
+  return val
+
+matrixIMap :: (Int -> Int -> a -> b) -> Matrix a -> Matrix b
+matrixIMap f (Matrix m) = Matrix $ V.imap eachRow m
+  where
+    eachRow y row   = V.imap (eachCol y) row
+    eachCol y x val = f x y val
 
 dimensions :: Matrix a -> (Int, Int)
 dimensions (Matrix m) =
@@ -63,6 +75,9 @@ matrixFlipVertical (Matrix m) = Matrix (V.reverse m)
 -- use matrixPad
 matrixFromList :: [[a]] -> Matrix a
 matrixFromList rows = Matrix $ V.fromList (map V.fromList rows)
+
+matrixFromSize :: Int -> Int -> a -> Matrix a
+matrixFromSize w h def = Matrix $ V.replicate h (V.replicate w def)
 
 matrixPad :: a -> Matrix a -> Matrix a
 matrixPad pad (Matrix m) = Matrix $ V.map (padRow (vectorsMaxWidth m) pad) m
