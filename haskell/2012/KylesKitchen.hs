@@ -2,12 +2,20 @@ module Main where
 
 import Control.Monad
 import System.IO
-import Data.Vector ()
+
+import Data.Maybe (catMaybes)
+import Data.List (nub, sortOn, subsequences)
+import qualified Data.Vector as V
+
+-- MATRIX IMPORTS ----------------------------------------------------
+import Data.Vector (Vector)
+import Data.Maybe (fromMaybe)
+import Data.Monoid ((<>))
+import qualified Data.List as L
+import qualified Data.Vector as V
+---------------------------------------------------------------------
 
 import Woot (woot)
-
-test :: FilePath -> IO ()
-test p = openFile p ReadMode >>= run
 
 type X = Int
 type Y = Int
@@ -16,35 +24,18 @@ type H = Int
 data Pos = Pos X Y
          deriving (Show, Eq)
 
-data Tile = Tile [Pos]
-          deriving (Show, Eq)
+type Tile = Matrix Int
 
--- filled positions
-data Grid = Grid W H [Pos]
-          deriving (Show, Eq)
+type Grid = Matrix Int
 
--- Nope, I want to use a matrix instead!
--- whee!
--- then I can add them
--- and see if anything is 2!
--- wahoo!
+data Placement = Placement Int Grid
+               deriving (Show, Eq)
 
--- maybe I should write a generalized rotate and flip function for multi-dimensional arrays
--- oh, yes, I definitely should
--- I wonder if it would be easier use a multi-dimensional vector than an array
--- yeah, let's try it
-
-tileA = Tile [Pos 0 0, Pos 1 0, Pos 2 0, Pos 3 0]
-tileB = undefined
-tileC = undefined
-tileD = undefined
-tileE = undefined
-
-rotate :: [Pos] -> [Pos]
-rotate = undefined
-
-flip :: [Pos] -> [Pos]
-flip = undefined
+tileA = matrixFromList [[1,1,1,1]]
+tileB = matrixFromList [[1,0],[1,0],[1,1]]
+tileC = matrixFromList [[1,1],[1,1]]
+tileD = matrixFromList [[1,0],[1,1],[0,1]]
+tileE = matrixFromList [[1,0],[1,1],[1,0]]
 
 tileFromType :: Char -> Maybe Tile
 tileFromType 'A' = Just tileA
@@ -54,23 +45,54 @@ tileFromType 'D' = Just tileD
 tileFromType 'E' = Just tileE
 tileFromType _ = Nothing
 
--- it should return the grid too, right?
--- no it's easy enough to do that elsewhere
-allPlacements :: Grid -> Tile -> [Grid]
-allPlacements = undefined
 
--- where am I placing it though?
-placeTile :: Grid -> Tile -> Pos -> Grid
-placeTile = undefined
+grid :: W -> H -> Grid
+grid w h = matrixFromSize w h 0
 
-isValidPlacement :: Grid -> Tile -> Pos -> Bool
-isValidPlacement = undefined
+-- map through the grid, and see if 
+placeTileAt :: Tile -> Grid -> Pos -> Maybe Grid
+placeTileAt t g p =
+    if not (isOnGrid t p g) then Nothing else
+    Just $ matrixIMap (updateCell t p) g
 
--- output is the maximum number of tiles Kyle can fit on his floor
--- so run the permutations and find the max?
--- we can flip and rotate them
--- I can also pre-flip and pre-rotation them?
--- sure, kind of
+allPositions :: W -> H -> [Pos]
+allPositions w h = [Pos x y | x <- [0..w-1], y <- [0..h-1]]
+
+updateCell :: Tile -> Pos -> X -> Y -> Int -> Int
+updateCell t (Pos x y) cx cy val = val + tileValue t (Pos (cx-x) (cy-y))
+
+tileValue :: Tile -> Pos -> Int
+tileValue t (Pos x y) = fromMaybe 0 (t !? (x, y))
+
+-- can only be off the bottom and right
+isOnGrid :: Tile -> Pos -> Grid -> Bool
+isOnGrid t (Pos x y) g =
+    let (tw, th) = dimensions t
+        (gw, gh) = dimensions g
+    in x + tw <= gw && y + th <= gh
+
+-- now I also need to include all variants of the tile
+placements :: Grid -> Tile -> [Grid]
+placements g t =
+    let (w, h) = dimensions g
+    in filter isValidPlacement $ catMaybes $ map (placeTileAt t g) $ allPositions w h
+
+placementsAllPerms :: Grid -> Tile -> [Grid]
+placementsAllPerms g t = concat $ map (placements g) $ tilePermutations t
+
+isValidPlacement :: Grid -> Bool
+isValidPlacement (Matrix m) = V.all (V.all (<2)) m
+
+--maxTiles :: Grid -> [Tile] -> Int
+--maxTiles g ts = 
+
+-- tile, all rotations
+-- flip, all rotations
+tilePermutations :: Tile -> [Tile]
+tilePermutations t = nub $ tileAllRotations t <> tileAllRotations (matrixFlipHorizontal t) <> tileAllRotations (matrixFlipVertical t)
+
+tileAllRotations :: Tile -> [Tile]
+tileAllRotations t = (take 4 $ iterate matrixRotate t)
 
 run :: Handle -> IO ()
 run h = do
@@ -83,3 +105,116 @@ run h = do
 main = run stdin
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- MATRIX FUNCTIONS --------------------------------------------------
+newtype Matrix a = Matrix (Vector (Vector a))
+                 deriving (Eq)
+
+instance (MShow a) => Show (Matrix a) where
+    show m = "\n" <> (L.intercalate "\n" $ map showRow (matrixToList m))
+      where
+        showRow :: MShow a => [a] -> String
+        showRow r =(concat (map mshow r))
+
+class MShow a where
+    mshow :: a -> String
+
+instance MShow Char where
+    mshow c = [c]
+
+instance MShow Int where
+    mshow = show
+
+instance MShow Bool where
+    mshow True  = "X"
+    mshow False = "O"
+
+(!) :: Matrix a -> (Int, Int) -> a
+(Matrix m) ! (x, y) = m V.! y V.! x
+
+(!?) :: Matrix a -> (Int, Int) -> Maybe a
+(Matrix m) !? (x, y) = do
+  row <- (m V.!? y)
+  val <- row V.!? x
+  return val
+
+matrixIMap :: (Int -> Int -> a -> b) -> Matrix a -> Matrix b
+matrixIMap f (Matrix m) = Matrix $ V.imap eachRow m
+  where
+    eachRow y row   = V.imap (eachCol y) row
+    eachCol y x val = f x y val
+
+dimensions :: Matrix a -> (Int, Int)
+dimensions (Matrix m) =
+    let h = V.length m
+        w = fromMaybe 0 $ V.length <$> (m V.!? 0)
+    in (w, h)
+
+-- rotates clockwise
+matrixRotate :: Matrix a -> Matrix a
+matrixRotate m =
+  let (w', h') = dimensions m
+      w = h'
+      h = w'
+  in Matrix $ V.generate h $ \y ->
+     V.generate w $ \x ->
+     m ! (y, (w - x - 1))
+
+-- flips horizontal
+matrixFlipHorizontal :: Matrix a -> Matrix a
+matrixFlipHorizontal (Matrix m) = Matrix $ V.map V.reverse m
+
+matrixFlipVertical :: Matrix a -> Matrix a
+matrixFlipVertical (Matrix m) = Matrix (V.reverse m)
+
+-- WARNING! Make sure to pad if there's a chance that the rows aren't even
+-- use matrixPad
+matrixFromList :: [[a]] -> Matrix a
+matrixFromList rows = Matrix $ V.fromList (map V.fromList rows)
+
+matrixPad :: a -> Matrix a -> Matrix a
+matrixPad pad (Matrix m) = Matrix $ V.map (padRow (vectorsMaxWidth m) pad) m
+
+vectorsMaxWidth :: Vector (Vector a) -> Int
+vectorsMaxWidth rows = V.maximum $ V.map V.length rows
+
+padRow :: Int -> a -> Vector a -> Vector a
+padRow w p row =
+    let n = w - V.length row
+    in row <> V.replicate n p
+
+matrixFromSize :: Int -> Int -> a -> Matrix a
+matrixFromSize w h def = Matrix $ V.replicate h (V.replicate w def)
+
+matrixToList :: Matrix a -> [[a]]
+matrixToList (Matrix m) = map V.toList $ V.toList m
+---------------------------------------------------------------------
