@@ -4,7 +4,8 @@ import Control.Monad
 import System.IO
 
 import Data.Maybe (catMaybes)
-import Data.List (nub, sortOn, subsequences)
+import Data.List (nub, sortBy, subsequences, maximumBy)
+import Data.Function (on)
 import qualified Data.Vector as V
 
 -- MATRIX IMPORTS ----------------------------------------------------
@@ -37,14 +38,13 @@ tileC = matrixFromList [[1,1],[1,1]]
 tileD = matrixFromList [[1,0],[1,1],[0,1]]
 tileE = matrixFromList [[1,0],[1,1],[1,0]]
 
-tileFromType :: Char -> Maybe Tile
-tileFromType 'A' = Just tileA
-tileFromType 'B' = Just tileB
-tileFromType 'C' = Just tileC
-tileFromType 'D' = Just tileD
-tileFromType 'E' = Just tileE
+tileFromType :: String -> Maybe Tile
+tileFromType "A" = Just tileA
+tileFromType "B" = Just tileB
+tileFromType "C" = Just tileC
+tileFromType "D" = Just tileD
+tileFromType "E" = Just tileE
 tileFromType _ = Nothing
-
 
 grid :: W -> H -> Grid
 grid w h = matrixFromSize w h 0
@@ -83,9 +83,6 @@ placementsAllPerms g t = concat $ map (placements g) $ tilePermutations t
 isValidPlacement :: Grid -> Bool
 isValidPlacement (Matrix m) = V.all (V.all (<2)) m
 
---maxTiles :: Grid -> [Tile] -> Int
---maxTiles g ts = 
-
 -- tile, all rotations
 -- flip, all rotations
 tilePermutations :: Tile -> [Tile]
@@ -94,13 +91,36 @@ tilePermutations t = nub $ tileAllRotations t <> tileAllRotations (matrixFlipHor
 tileAllRotations :: Tile -> [Tile]
 tileAllRotations t = (take 4 $ iterate matrixRotate t)
 
+maxTiles :: Grid -> [Tile] -> Int
+maxTiles g ts =
+    let tss = subsequences ts
+        gs = map (\ts -> placeAllTiles ts g) tss
+        scores = map (uncurry scoreGrid) $ zip tss gs
+    in maximum scores
+
+scoreGrid :: [Tile] -> [Grid] -> Int
+scoreGrid _ [] = 0
+scoreGrid ts _ = length ts
+
+placeAllTiles :: [Tile] -> Grid -> [Grid]
+placeAllTiles []     g = [g]
+placeAllTiles (t:ts) g =
+    let gs = placementsAllPerms g t
+    in concatMap (placeAllTiles ts) gs
+
 run :: Handle -> IO ()
 run h = do
-    print "HI"
-    --codes <- lines <$> hGetContents h
-    ---- lines cleans it up a lot
-    --forM_ codes $ \code -> do
-      --putStrLn "HI"
+    mnLine <- hGetLine h
+    tilesLine <- hGetLine h
+    let [n, m] = map read $ words mnLine :: [Int]
+        tiles = catMaybes $ map tileFromType $ words tilesLine
+        g = grid n m
+        max = maxTiles g tiles
+    print max
+
+test :: FilePath -> IO ()
+test p = openFile p ReadMode >>= run
+
 
 main = run stdin
 
@@ -218,3 +238,7 @@ matrixFromSize w h def = Matrix $ V.replicate h (V.replicate w def)
 matrixToList :: Matrix a -> [[a]]
 matrixToList (Matrix m) = map V.toList $ V.toList m
 ---------------------------------------------------------------------
+
+
+
+
