@@ -13,7 +13,7 @@ build-type:          Simple
 cabal-version:       >=1.10
 
 executable penny
-  hs-source-dirs:      src
+  hs-source-dirs:      2012/final
   main-is:             Main.hs
   default-language:    Haskell2010
   build-depends:       base >= 4.7 && < 5,
@@ -25,4 +25,10 @@ executable penny
                        text,
                        array,
                        split,
-                       vector
+                       vector,
+                       aeson,
+                       wreq,
+                       lens,
+                       transformers,
+                       http-client,
+                       http-types
