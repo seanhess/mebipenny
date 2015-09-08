@@ -4,6 +4,7 @@
 module Types.Tile where
 
 import Data.Aeson
+import Data.Hashable
 import GHC.Generics
 
 type Col = Int
@@ -19,11 +20,5 @@ data Tile = Tile
 instance FromJSON Tile
 instance ToJSON Tile
 
-
-data Claim = Claim
-           { tile :: Tile
-           , owner :: Maybe String
-           } deriving (Show, Eq, Generic)
-
-instance FromJSON Claim
-instance ToJSON Claim
+instance Hashable Tile where
+    hashWithSalt i (Tile r c) = hashWithSalt i (r, c)

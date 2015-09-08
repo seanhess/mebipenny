@@ -1,8 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE DisambiguateRecordFields #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Actions where
 
+import Control.Monad.State hiding (state)
 import Data.Monoid
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BS
@@ -132,4 +134,58 @@ turns gamePath playerId token game = do
       then putStrLn "COMPLETE"
       else turns gamePath playerId token' game'
 
+-------------------------------------------------------------------------------------
 
+
+data TurnState = TurnState
+  { playerId :: PlayerId
+  , gamePath :: String
+  , turnToken :: TurnToken
+  , game :: Game
+  } deriving (Show, Eq)
+
+setToken :: TurnToken -> TurnState -> TurnState
+setToken tok s = s { turnToken = tok }
+
+setGame :: Game -> TurnState -> TurnState
+setGame g s = s { game = g }
+
+newtype GameIO a = GameIO
+  { unGame :: StateT TurnState IO a }
+  deriving (Monad, Functor, Applicative, MonadIO, MonadState TurnState)
+
+-- the problem is I don't know the game path yet, so I can't initialize the game state until afterward
+
+turn' :: GameIO ()
+turn' = do
+    g <- gets game
+    pid <- gets playerId
+    let tiles = Game.playerTiles pid (Game.players g)
+    case bestMove pid tiles (gameBoard g) of
+      Nothing -> do
+        liftIO $ putStrLn "NO MOVE"
+        return ()
+
+      Just (score, tile) -> do
+        liftIO $ putStrLn ("BEST MOVE: " ++ show score ++ " " ++ show tile)
+        playMove' (Move tile pid)
+
+playMove' :: Move -> GameIO ()
+playMove' move = do
+    tok <- gets turnToken
+    gp <- gets gamePath
+    (token, game) <- liftIO $ playMove gp tok move
+    saveDelta game
+    saveToken token
+
+saveDelta :: GameDelta -> GameIO ()
+saveDelta delta = modify (\s -> setGame (applyDelta delta (game s)) s)
+
+saveToken :: TurnToken -> GameIO ()
+saveToken tok = modify (setToken tok)
+
+-- would this have made more sense as State?
+-- StateT ActionState IO ()
+-- it feels like some kind of fold... I'm folding over and keeping going...
+-- naw, a recursive loop is better...
+-- but the token thing is bogus. I have to be able to improve that with state

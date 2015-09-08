@@ -1,9 +1,9 @@
 module Main where
 
+import Control.Applicative ((<$>))
 import Data.Array (Array, ixmap, (!), listArray, elems)
 import Data.List.Split (chunksOf)
 import Data.List (transpose)
-import Debug.Trace (trace, traceM)
 import Data.Monoid ((<>))
 
 -- Lessons learned:

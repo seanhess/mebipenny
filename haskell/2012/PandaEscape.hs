@@ -1,5 +1,6 @@
 module Main where
 
+import Control.Applicative ((<$>))
 import Data.List
 import System.IO
 
@@ -58,6 +59,7 @@ compareHeaviest (a:as) (b:bs)
 compareHeaviest _ _ = EQ
 
 
+
 -- the thing with subsequences
 -- it calculates a lot of stuff that clearly won't work
 -- like, weights WAY beyond the max
@@ -68,14 +70,15 @@ test p = openFile p ReadMode >>= run
 runLine :: String -> IO ()
 runLine l = do
     let (c:e:gs) = map read $ words l :: [Int]
-    print $ length $ subsequences gs
+    -- print $ length $ subsequences gs
 
-    --let sol = bestSolution $ validCombos c e gs
-    --case sol of
-      --Nothing -> putStrLn "NO SOLUTION"
-      --Just gs -> do
-        --let out = unwords (map show gs)
-        --putStrLn out
+    let sol = bestSolution $ validCombos c e gs
+    case sol of
+      Nothing -> putStrLn "NO SOLUTION"
+      Just gs -> do
+        let sorted = sort gs
+        let out = unwords (map show sorted)
+        putStrLn out
 
 run :: Handle -> IO ()
 run h = do

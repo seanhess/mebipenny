@@ -11,6 +11,7 @@ import Data.HashMap.Strict as Map
 
 import Types.Player as Player
 import Types.Tile as Tile
+import Types.Claim as Claim
 
 data GameState = Initiating | InPlay | Completed
                deriving (Show, Eq)
@@ -29,15 +30,21 @@ data Game = Game
           { rows :: Int
           , cols :: Int
           -- tiles remaining in the draw pool
-          , draw_size :: Int
-          -- number of claims already prsent
+          , drawSize :: Int
+          -- claims made specifically, not missing
           , claims :: [Claim]
           , players :: [Player]
-          , player_id :: String
+          , playerId :: String
           , state :: GameState
           } deriving (Show, Eq, Generic)
 
-instance FromJSON Game
+-- instance FromJSON Game where
+    -- parseJSON (Object obj) = do
+      -- Game <$>
+      -- obj .: "rows" <*>
+      -- obj .: "cols" <*>
+      -- obj .: "draw_size" <*>
+      -- obj .: "claims" <*>
 
 playerById :: String -> [Player] -> Maybe Player
 playerById pid ps = find (\p -> Player.id p == pid) ps
@@ -45,17 +52,3 @@ playerById pid ps = find (\p -> Player.id p == pid) ps
 playerTiles :: String -> [Player] -> [Tile]
 playerTiles pid ps = fromMaybe [] $ (handTiles . hand <$> playerById pid ps)
 
-type ClaimsMap = HashMap (Row, Col) PlayerId
-
-buildClaims :: [Claim] -> ClaimsMap
-buildClaims cs = List.foldr setClaim (Map.empty) cs
-
-claimsList :: ClaimsMap -> [Claim]
-claimsList cm = List.map claimFromMap $ Map.toList cm
-
-claimFromMap :: ((Row, Col), PlayerId) -> Claim
-claimFromMap ((r, c), p) = Claim (Tile r c) (Just p)
-
-setClaim :: Claim -> ClaimsMap -> ClaimsMap
-setClaim (Claim _ Nothing) b = b
-setClaim (Claim (Tile row col) (Just own)) b = Map.insert (row, col) own b
