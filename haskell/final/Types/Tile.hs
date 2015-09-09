@@ -7,11 +7,6 @@ import Data.Aeson
 import Data.Hashable
 import GHC.Generics
 
-type Col = Int
-type Row = Int
-type Rows = Int
-type Cols = Int
-
 data Tile = Tile
           { row :: Row
           , col :: Col

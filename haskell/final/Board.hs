@@ -1,150 +1,161 @@
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE FlexibleInstances #-}
 module Board where
 
--- I need to be able to predict the optimal move
-import Types.Tile
-import Types.Game as Game
-import Types.Player
-import Types.Claim as Claim
 
+import Data.Hashable
 import Data.HashMap.Strict as Map
 import Data.Maybe as Maybe
 import Data.HashMap.Strict (HashMap)
-import qualified Data.HashMap.Strict as HM
 import Data.List as List
 import Data.Function (on)
 import Data.List.Split as List
 
--- if this were a grid, we could... you know..
-data Board = Board
+type Col = Int
+type Row = Int
+type Rows = Int
+type Cols = Int
+
+class (Hashable a, Eq a, Show a) => Loc a where
+  row :: a -> Int
+  col :: a -> Int
+  location :: Int -> Int -> a
+
+class ShowChar a where
+  showc :: a -> Char
+
+instance Loc (Int, Int) where
+  row = fst
+  col = snd
+  location = (,)
+
+-- no, this is all the pieces in play. It's the most natural
+data Board loc piece = Board
   { rows :: Rows
   , cols :: Cols
-  , grid :: HashMap Tile PlayerId
-  } deriving (Show, Eq)
+  , grid :: (Loc loc) => HashMap loc piece
+  }
 
-setGrid :: HashMap Tile PlayerId -> Board -> Board
+setGrid :: (Loc loc) => HashMap loc piece -> Board loc piece -> Board loc piece
 setGrid g b = b { grid = g }
 
-------------------------------------------------------------------
--- would it be easier to use a grid?
--- maybe I could index by anything? No, that doesn't make sense
+-- what do I do to build a board?
+-- I need assocs!
+fromList :: Loc loc => Rows -> Cols -> [(loc, piece)] -> Board loc piece
+fromList rows cols lps = List.foldr set (emptyBoard rows cols) lps
+  where
+    set (l, p) b = setPiece l p b
 
-buildBoard :: Rows -> Cols -> [Claim] -> Board
-buildBoard rows cols cs = List.foldr setClaim (emptyBoard rows cols) cs
+emptyBoard :: Rows -> Cols -> Board index piece
+emptyBoard rows cols = Board rows cols Map.empty
 
-emptyBoard :: Rows -> Cols -> Board
-emptyBoard rows cols = Board rows cols HM.empty
+-- what should this do if it's an invalid location?
+-- return Nothing? Yes, but that means we screwed up
+lookup :: Loc loc => loc -> Board loc piece -> Maybe piece
+lookup l b = Map.lookup l (grid b)
 
-allClaims :: Board -> [Claim]
-allClaims board = List.map (flip lookupTile board) (allTiles board)
+lookupAll :: Loc loc => [loc] -> Board loc piece -> [(loc, Maybe piece)]
+lookupAll ls b = List.zip ls $ List.map (flip Board.lookup b) ls
+    -- ps = 
+    -- in List.zip ls ps
 
-takenClaims :: Board -> [TakenClaim]
-takenClaims (Board _ _ grid) = List.zipWith TakenClaim (Map.keys grid) (Map.elems grid)
-
-lookupTile :: Tile -> Board -> Claim
-lookupTile t b = Claim t (Map.lookup t (grid b))
-
--- allTilesRows :: Board -> [[Tile]]
--- allTilesRows b = groupBy tileEq allTiles
-  -- where
-    -- tileEq (Tile r1 _) (Tile r2 _) = r1 == r2
-
-allTiles :: Board -> [Tile]
-allTiles (Board rows cols _) = do
+allLocations :: Loc loc => Board loc p -> [loc]
+allLocations (Board rows cols _) = do
     r <- [0..rows-1]
     c <- [0..cols-1]
-    return $ Tile r c
+    return $ location r c
 
--- buildClaims :: [Claim] -> ClaimsMap
--- buildClaims cs = List.foldr setClaim (Map.empty) cs
+emptyLocations  :: Loc loc => Board loc p -> [loc]
+emptyLocations b = Maybe.mapMaybe each $ toListAll b
+  where
+    each (loc, Nothing) = Nothing
+    each (loc, (Just p)) = Just loc
 
--- claimsList :: ClaimsMap -> [Claim]
--- claimsList cm = List.map claimFromMap $ Map.toList cm
+toListAll :: Loc loc => Board loc p -> [(loc, Maybe p)]
+toListAll b = flip lookupAll b $ allLocations b
 
--- claimFromMap :: ((Row, Col), PlayerId) -> Claim
--- claimFromMap ((r, c), p) = Claim (Tile r c) (Just p)
+toListFilled :: Loc loc => Board loc p -> [(loc, p)]
+toListFilled b = Maybe.mapMaybe each $ toListAll b
+  where
+    each (loc, Nothing) = Nothing
+    each (loc, (Just p)) = Just (loc, p)
 
--- setClaim :: Claim -> ClaimsMap -> ClaimsMap
--- -- setClaim (Claim _ Nothing) b = b
--- setClaim (Claim (Tile row col) own) b = Map.insert (row, col) own b
 
--- gridMap :: (Int -> Int -> a -> b) -> Vector (Vector a) -> Vector (Vector b)
--- gridMap f rows =
-  -- imap rows $ \r row ->
-    -- imap row $ \c v ->
-      -- f r c v
-  -- where imap = flip Vector.imap
+-- toList :: Loc loc => Board loc piece -> [(loc, piece)]
+-- toList (Board _ _ grid) = Map.toList grid
 
--- -- and then it's an easy List.concat to flatten it
--- gridToList :: Vector (Vector a) -> [[a]]
--- gridToList = Vector.toList . Vector.map Vector.toList
+-- emptyLocs :: Loc loc => Board loc p -> [loc]
 
--- -- that's access, but now how do I WRITE a value
--- -- vector is hte WRONG
--- -- ok, no, DEFINITELY use HashMap
--- (!!?) :: Vector (Vector a) -> (Int, Int) -> Maybe a
--- grid !!? (r, c) = do
-    -- row <- grid !? r
-    -- val <- row !? c
-    -- return val
+-- TODO make sure it is a valid location first
+setPiece :: Loc loc => loc -> piece -> Board loc piece -> Board loc piece
+setPiece l p b = setGrid (Map.insert l p (grid b)) b
 
----------------------------------------------------------------
+isValid :: Loc loc => Board loc piece -> loc -> Bool
+isValid (Board rows cols _) l = row l >= 0 && row l < rows && col l >= 0 && col l < cols
 
-setClaim :: Claim -> Board -> Board
-setClaim (Claim _ Nothing) b = b
-setClaim (Claim t (Just p)) b = setGrid (Map.insert t p (grid b)) b
-
-movesLeft :: [Tile] -> Board -> Bool
-movesLeft = undefined
 
 -- I need to map it to a multi-deminsional list
-showBoard :: Board -> String
-showBoard b = unlines $ List.map line $ List.map (List.concat . List.map showClaim) $ List.chunksOf (Board.cols b) $ allClaims b
+showBoard :: (ShowChar piece, Loc loc) => Board loc piece -> String
+showBoard b =
+  let all = Board.toListAll b
+      rows = List.chunksOf (cols b) all
+      lns = List.map (List.map (showPiece . snd)) rows
+  in unlines (List.map line lns)
+
   where
     line cs = "|" ++ cs ++ "|"
+    showPiece Nothing  = ' '
+    showPiece (Just p) = showc p
+
+-- printBoard :: (ShowChar piece, Loc loc) => Board loc piece -> IO ()
+-- printBoard = putStrLn . showBoard
+
+instance (ShowChar piece, Loc loc) => Show (Board loc piece) where
+    show = showBoard
 
 
-showClaim :: Claim -> String
-showClaim (Claim t (Just (p:ps))) = [p]
-showClaim (Claim t (Just "")) = '?':""
-showClaim (Claim _ Nothing) = ' ':""
+adjacent :: (Loc loc) => loc -> [loc]
+adjacent loc =
+    let r = row loc
+        c = col loc
+    in
+    [                     location (r+1) (c)
+    , location (r) (c-1),                     location (r)   (c+1)
+    ,                     location (r-1) (c)
+    ]
 
--- \033[31m This text is red \033[0m
+corners :: (Loc loc) => loc -> [loc]
+corners loc =
+    let r = row loc
+        c = col loc
+    in
+    [ location (r-1) (c-1),                     location (r-1) (c+1)
 
-printBoard :: Board -> IO ()
-printBoard = putStrLn . showBoard
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    , location (r+1) (c-1),                     location (r+1) (c+1)
+    ]
 
 
 
+-- NOTES
+-- owner can be null, playerId in the response
+-- but it can be unnocupied too!
+-- Tiles: explicitly unoccupied, maybe?
+-- Piece: Empty | Wall | Tile PlayerId
+-- hmmmmm.... maybe I should enforce that
+-- I need to handle those explicitly when I predict what their response can be!
+
+-- PASS is a valid move
 
 
--- takenClaims :: ClaimsMap -> [Claim]
--- takenClaims b = map toClaim $ HM.toList b
-  -- where
-    -- toClaim ((r, c), p) = Claim (Tile r c) (Just p)
 
--- gameBoard :: Game -> Board
--- gameBoard game = board (Game.rows game) (Game.cols game) (Game.claims game)
+-- TODO make a UI so you can play against your bot?
+-- that would be very helpful I bet, but slow...
+-- maybe a command-line UI?
+-- probably not worth it
+
+
+
+
 
 -- board :: Rows -> Cols -> [Claim] -> Board
 -- board rows cols cs = Board rows cols $ buildClaims cs
@@ -191,24 +202,9 @@ printBoard = putStrLn . showBoard
       -- | ps == os = p
       -- | ps < os  = o
 
--- -- returns the elements!
+-- returns the elements!
 -- playerScore :: PlayerId -> [Claim] -> Int
 -- playerScore p cs = length $ filter (== p) $ catMaybes $ map owner cs
-
--- conquerClaim :: PlayerId -> Claim -> Board -> Board
--- conquerClaim p c b =
-    -- let cmap = setClaim (c { owner = Just p }) (claimsMap b)
-    -- in b { claimsMap = cmap }
-
--- neighbors :: Tile -> [Tile]
--- neighbors (Tile r c) =
-    -- [                   Tile (r+1) (c)
-    -- , Tile (r)   (c-1),                 Tile (r)   (c+1)
-    -- ,                   Tile (r-1) (c)
-    -- ]
-
--- validTile :: Board -> Tile -> Bool
--- validTile (Board rows cols _) (Tile r c) = r >= 0 && c >= 0 && r < rows && c < cols
 
 -- neighborArmy :: PlayerId -> Tile -> Board -> [Claim]
 -- neighborArmy playerId tile board =
@@ -218,9 +214,13 @@ printBoard = putStrLn . showBoard
 
 -- ----------------------------------------------------------
 
-sampleBoard :: Board
-sampleBoard = buildBoard 2 2 sampleClaims
+sampleBoard :: Board (Int, Int) String
+sampleBoard = Board.fromList 2 2 [((0,1),"bob"),((1,0),"alice")]
 
-sampleClaims :: [Claim]
-sampleClaims = [Claim (Tile 0 1) (Just "bob"), Claim (Tile 1 0) (Just "alice")]
+instance ShowChar String where
+    showc [] = ' '
+    showc (x:xs) = x
+
+-- sampleClaims :: [Claim]
+-- sampleClaims = [Claim (Tile 0 1) (Just "bob"), Claim (Tile 1 0) (Just "alice")]
 
