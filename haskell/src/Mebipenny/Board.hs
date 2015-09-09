@@ -1,15 +1,15 @@
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleInstances #-}
-module Board where
+module Mebipenny.Board where
 
-
+import Prelude hiding (lookup)
 import Data.Hashable
-import Data.HashMap.Strict as Map
-import Data.Maybe as Maybe
+import qualified Data.HashMap.Strict as Map
+import qualified Data.Maybe as Maybe
 import Data.HashMap.Strict (HashMap)
-import Data.List as List
+import qualified Data.List as List
 import Data.Function (on)
-import Data.List.Split as List
+import qualified Data.List.Split as List
 
 type Col = Int
 type Row = Int
@@ -21,7 +21,8 @@ class (Hashable a, Eq a, Show a) => Loc a where
   col :: a -> Int
   location :: Int -> Int -> a
 
-class ShowChar a where
+class (Eq a, Show a) => Piece a where
+  unoccupied :: a
   showc :: a -> Char
 
 instance Loc (Int, Int) where
@@ -29,35 +30,54 @@ instance Loc (Int, Int) where
   col = snd
   location = (,)
 
+instance Piece Char where
+  unoccupied = '_'
+  showc = id
+
 -- no, this is all the pieces in play. It's the most natural
-data Board loc piece = Board
+data Board l p = Board
   { rows :: Rows
   , cols :: Cols
-  , grid :: (Loc loc) => HashMap loc piece
+  , grid :: (Loc l, Piece p) => HashMap l p
   }
 
-setGrid :: (Loc loc) => HashMap loc piece -> Board loc piece -> Board loc piece
+setGrid :: (Loc l, Piece p) => HashMap l p -> Board l p -> Board l p
 setGrid g b = b { grid = g }
 
--- what do I do to build a board?
--- I need assocs!
-fromList :: Loc loc => Rows -> Cols -> [(loc, piece)] -> Board loc piece
-fromList rows cols lps = List.foldr set (emptyBoard rows cols) lps
-  where
-    set (l, p) b = setPiece l p b
+-----------------------------------------------------------------------
+-- Building and writing
+
+fromList :: (Loc l, Piece p) => Rows -> Cols -> [(l, p)] -> Board l p
+fromList rows cols lps = setPieces lps (emptyBoard rows cols)
 
 emptyBoard :: Rows -> Cols -> Board index piece
 emptyBoard rows cols = Board rows cols Map.empty
 
+setPiece :: (Loc l, Piece p) => l -> p -> Board l p -> Board l p
+setPiece l p b =
+    if isValid b l
+      then setGrid (Map.insert l p (grid b)) b
+      else b
+
+setPieces :: (Loc l, Piece p) => [(l, p)] -> Board l p -> Board l p
+setPieces lps b = List.foldr (\(l, p) b -> setPiece l p b) b lps
+
+isValid :: Loc loc => Board loc piece -> loc -> Bool
+isValid (Board rows cols _) l = row l >= 0 && row l < rows && col l >= 0 && col l < cols
+
+------------------------------------------------------------------------
+-- Lookup
+
 -- what should this do if it's an invalid location?
 -- return Nothing? Yes, but that means we screwed up
-lookup :: Loc loc => loc -> Board loc piece -> Maybe piece
-lookup l b = Map.lookup l (grid b)
+lookup :: (Loc l, Piece p) => l -> Board l p -> p
+lookup l b =
+    case Map.lookup l (grid b) of
+      Nothing -> unoccupied
+      Just p -> p
 
-lookupAll :: Loc loc => [loc] -> Board loc piece -> [(loc, Maybe piece)]
-lookupAll ls b = List.zip ls $ List.map (flip Board.lookup b) ls
-    -- ps = 
-    -- in List.zip ls ps
+lookupAll :: (Loc l, Piece p) => [l] -> Board l p -> [(l, p)]
+lookupAll ls b = List.zip ls $ List.map (flip lookup b) ls
 
 allLocations :: Loc loc => Board loc p -> [loc]
 allLocations (Board rows cols _) = do
@@ -65,54 +85,31 @@ allLocations (Board rows cols _) = do
     c <- [0..cols-1]
     return $ location r c
 
-emptyLocations  :: Loc loc => Board loc p -> [loc]
-emptyLocations b = Maybe.mapMaybe each $ toListAll b
-  where
-    each (loc, Nothing) = Nothing
-    each (loc, (Just p)) = Just loc
-
-toListAll :: Loc loc => Board loc p -> [(loc, Maybe p)]
-toListAll b = flip lookupAll b $ allLocations b
-
-toListFilled :: Loc loc => Board loc p -> [(loc, p)]
-toListFilled b = Maybe.mapMaybe each $ toListAll b
-  where
-    each (loc, Nothing) = Nothing
-    each (loc, (Just p)) = Just (loc, p)
+toList :: (Loc l, Piece p) => Board l p -> [(l, p)]
+toList b = flip lookupAll b $ allLocations b
 
 
--- toList :: Loc loc => Board loc piece -> [(loc, piece)]
--- toList (Board _ _ grid) = Map.toList grid
+------------------------------------------------------------------------
+-- Printing!
 
--- emptyLocs :: Loc loc => Board loc p -> [loc]
-
--- TODO make sure it is a valid location first
-setPiece :: Loc loc => loc -> piece -> Board loc piece -> Board loc piece
-setPiece l p b = setGrid (Map.insert l p (grid b)) b
-
-isValid :: Loc loc => Board loc piece -> loc -> Bool
-isValid (Board rows cols _) l = row l >= 0 && row l < rows && col l >= 0 && col l < cols
-
-
--- I need to map it to a multi-deminsional list
-showBoard :: (ShowChar piece, Loc loc) => Board loc piece -> String
+showBoard :: (Piece p, Loc l) => Board l p -> String
 showBoard b =
-  let all = Board.toListAll b
-      rows = List.chunksOf (cols b) all
-      lns = List.map (List.map (showPiece . snd)) rows
-  in unlines (List.map line lns)
+  let rmax = rows b
+      all = toList b
+      rs = List.chunksOf (cols b) all
+      lns = List.map (List.concatMap (showEach . snd)) rs
+      top = " _" ++ List.concatMap showNum [0..rmax-1] ++ "__"
+  in unlines (top : List.zipWith line [0..] lns)
 
   where
-    line cs = "|" ++ cs ++ "|"
-    showPiece Nothing  = ' '
-    showPiece (Just p) = showc p
+    line n cs = show n ++ "|" ++ cs ++ " |"
+    showEach v = ' ' : showc v : ""
+    showNum n = '_' : show n
 
--- printBoard :: (ShowChar piece, Loc loc) => Board loc piece -> IO ()
--- printBoard = putStrLn . showBoard
-
-instance (ShowChar piece, Loc loc) => Show (Board loc piece) where
+instance (Piece p, Loc l) => Show (Board l p) where
     show = showBoard
 
+----------------------------------------------------------------------
 
 adjacent :: (Loc loc) => loc -> [loc]
 adjacent loc =
@@ -214,12 +211,12 @@ corners loc =
 
 -- ----------------------------------------------------------
 
-sampleBoard :: Board (Int, Int) String
-sampleBoard = Board.fromList 2 2 [((0,1),"bob"),((1,0),"alice")]
+sampleBoard :: Board (Int, Int) Char
+sampleBoard = fromList 2 2 [((0,1),'b'),((1,0),'a')]
 
-instance ShowChar String where
-    showc [] = ' '
-    showc (x:xs) = x
+-- instance ShowChar String where
+    -- showc [] = ' '
+    -- showc (x:xs) = x
 
 -- sampleClaims :: [Claim]
 -- sampleClaims = [Claim (Tile 0 1) (Just "bob"), Claim (Tile 1 0) (Just "alice")]

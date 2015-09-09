@@ -1,5 +1,5 @@
 -- https://github.com/billpmurphy/h2048/blob/master/hSolve2048.hs
-module AIExpectimax where
+module Mebipenny.AIExpectimax where
 
 import Prelude hiding (Left, Right)
 import Data.List (genericLength, sortBy)
