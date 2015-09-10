@@ -9,7 +9,7 @@ module Main where
 import Data.Monoid
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BS
-import Engine
+import Solve
 import qualified Network.Wreq as Wreq
 import Network.Wreq
 import Control.Lens
@@ -38,5 +38,8 @@ import Control.Exception
     -- print body
     -- print game
 
-
-main = putStrLn "WOOOT"
+main = do
+  let depth = 4
+  putStrLn ("WOOOT" ++ show depth)
+  let mv = bestMove depth sampleTurnState
+  print mv

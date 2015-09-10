@@ -21,7 +21,7 @@ class (Hashable a, Eq a, Show a) => Loc a where
   col :: a -> Int
   location :: Int -> Int -> a
 
-class (Eq a, Show a) => Piece a where
+class (Eq a, Show a) => BoardPiece a where
   unoccupied :: a
   showc :: a -> Char
 
@@ -30,7 +30,7 @@ instance Loc (Int, Int) where
   col = snd
   location = (,)
 
-instance Piece Char where
+instance BoardPiece Char where
   unoccupied = '_'
   showc = id
 
@@ -38,136 +38,106 @@ instance Piece Char where
 data Board l p = Board
   { rows :: Rows
   , cols :: Cols
-  , grid :: (Loc l, Piece p) => HashMap l p
+  , grid :: (Loc l, BoardPiece p) => HashMap l p
   }
 
-setGrid :: (Loc l, Piece p) => HashMap l p -> Board l p -> Board l p
+instance (Loc l, BoardPiece p) => Eq (Board l p) where
+  (Board r1 c1 g1) == (Board r2 c2 g2) =
+    r1 == r2 &&
+    c1 == c2 &&
+    g1 == g2
+
+setGrid :: (Loc l, BoardPiece p) => HashMap l p -> Board l p -> Board l p
 setGrid g b = b { grid = g }
 
 -----------------------------------------------------------------------
 -- Building and writing
 
-fromList :: (Loc l, Piece p) => Rows -> Cols -> [(l, p)] -> Board l p
-fromList rows cols lps = setPieces lps (emptyBoard rows cols)
+fromList :: (Loc l, BoardPiece p) => Rows -> Cols -> [(l, p)] -> Board l p
+fromList rows cols lps = setPieces (emptyBoard rows cols) lps
 
-emptyBoard :: Rows -> Cols -> Board index piece
+emptyBoard :: (Loc l, BoardPiece p) => Rows -> Cols -> Board l p
 emptyBoard rows cols = Board rows cols Map.empty
 
-setPiece :: (Loc l, Piece p) => l -> p -> Board l p -> Board l p
-setPiece l p b =
+setPiece :: (Loc l, BoardPiece p) => Board l p -> l -> p -> Board l p
+setPiece b l p =
     if isValid b l
       then setGrid (Map.insert l p (grid b)) b
       else b
 
-setPieces :: (Loc l, Piece p) => [(l, p)] -> Board l p -> Board l p
-setPieces lps b = List.foldr (\(l, p) b -> setPiece l p b) b lps
+setPieces :: (Loc l, BoardPiece p) => Board l p -> [(l, p)] -> Board l p
+setPieces b lps = List.foldr (\(l, p) b -> setPiece b l p) b lps
 
-isValid :: Loc loc => Board loc piece -> loc -> Bool
+isValid :: (Loc l, BoardPiece p) => Board l p -> l -> Bool
 isValid (Board rows cols _) l = row l >= 0 && row l < rows && col l >= 0 && col l < cols
 
 ------------------------------------------------------------------------
 -- Lookup
 
--- what should this do if it's an invalid location?
--- return Nothing? Yes, but that means we screwed up
-lookup :: (Loc l, Piece p) => l -> Board l p -> p
-lookup l b =
+lookup :: (Loc l, BoardPiece p) => Board l p -> l -> p
+lookup b l =
     case Map.lookup l (grid b) of
       Nothing -> unoccupied
       Just p -> p
 
-lookupAll :: (Loc l, Piece p) => [l] -> Board l p -> [(l, p)]
-lookupAll ls b = List.zip ls $ List.map (flip lookup b) ls
+lookupAll :: (Loc l, BoardPiece p) => Board l p -> [l] -> [(l, p)]
+lookupAll b ls = List.zip ls $ List.map (lookup b) ls
 
-allLocations :: Loc loc => Board loc p -> [loc]
+allLocations :: (Loc l, BoardPiece p) => Board l p -> [l]
 allLocations (Board rows cols _) = do
     r <- [0..rows-1]
     c <- [0..cols-1]
     return $ location r c
 
-toList :: (Loc l, Piece p) => Board l p -> [(l, p)]
-toList b = flip lookupAll b $ allLocations b
+toList :: (Loc l, BoardPiece p) => Board l p -> [(l, p)]
+toList b = lookupAll b $ allLocations b
 
 
 ------------------------------------------------------------------------
 -- Printing!
 
-showBoard :: (Piece p, Loc l) => Board l p -> String
+showBoard :: (BoardPiece p, Loc l) => Board l p -> String
 showBoard b =
   let rmax = rows b
       all = toList b
       rs = List.chunksOf (cols b) all
       lns = List.map (List.concatMap (showEach . snd)) rs
       top = " _" ++ List.concatMap showNum [0..rmax-1] ++ "__"
-  in unlines (top : List.zipWith line [0..] lns)
+  in "\n" ++ unlines (top : List.zipWith line [0..] lns)
 
   where
     line n cs = show n ++ "|" ++ cs ++ " |"
     showEach v = ' ' : showc v : ""
     showNum n = '_' : show n
 
-instance (Piece p, Loc l) => Show (Board l p) where
+instance (BoardPiece p, Loc l) => Show (Board l p) where
     show = showBoard
 
 ----------------------------------------------------------------------
 
-adjacent :: (Loc loc) => loc -> [loc]
-adjacent loc =
+-- should this filter valid spaces?
+-- what about walls, etc?
+-- they'll come back as Empty
+-- not sure if that makes sense
+adjacent :: (Loc l, BoardPiece p) => Board l p -> l -> [l]
+adjacent b loc =
     let r = row loc
         c = col loc
-    in
+    in List.filter (isValid b)
     [                     location (r+1) (c)
     , location (r) (c-1),                     location (r)   (c+1)
     ,                     location (r-1) (c)
     ]
 
-corners :: (Loc loc) => loc -> [loc]
-corners loc =
+corners :: (Loc l, BoardPiece p) => Board l p -> l -> [l]
+corners b loc =
     let r = row loc
         c = col loc
-    in
+    in List.filter (isValid b)
     [ location (r-1) (c-1),                     location (r-1) (c+1)
 
     , location (r+1) (c-1),                     location (r+1) (c+1)
     ]
-
-
-
--- NOTES
--- owner can be null, playerId in the response
--- but it can be unnocupied too!
--- Tiles: explicitly unoccupied, maybe?
--- Piece: Empty | Wall | Tile PlayerId
--- hmmmmm.... maybe I should enforce that
--- I need to handle those explicitly when I predict what their response can be!
-
--- PASS is a valid move
-
-
-
--- TODO make a UI so you can play against your bot?
--- that would be very helpful I bet, but slow...
--- maybe a command-line UI?
--- probably not worth it
-
-
-
-
-
--- board :: Rows -> Cols -> [Claim] -> Board
--- board rows cols cs = Board rows cols $ buildClaims cs
-
--- claim :: Board -> Tile -> Maybe Claim
--- claim board (Tile r c) =
-    -- let mp = HM.lookup (r, c) (claimsMap board)
-        -- tile = Tile r c
-    -- in
-    -- if validTile board tile
-      -- then Just $ Claim tile mp
-      -- else Nothing
-
--- hasOwner :: Claim -> Bool
--- hasOwner claim = isJust (owner claim)
 
 -- bestMove :: PlayerId -> [Tile] -> Board -> Maybe (Int, Tile)
 -- bestMove _ [] _ = Nothing
@@ -203,16 +173,10 @@ corners loc =
 -- playerScore :: PlayerId -> [Claim] -> Int
 -- playerScore p cs = length $ filter (== p) $ catMaybes $ map owner cs
 
--- neighborArmy :: PlayerId -> Tile -> Board -> [Claim]
--- neighborArmy playerId tile board =
-  -- let ts = neighbors tile
-      -- new = Claim tile (Just playerId)
-  -- in new : List.filter hasOwner (mapMaybe (claim board) ts)
-
 -- ----------------------------------------------------------
 
-sampleBoard :: Board (Int, Int) Char
-sampleBoard = fromList 2 2 [((0,1),'b'),((1,0),'a')]
+-- sampleBoard :: Board (Int, Int) Char
+-- sampleBoard = fromList 2 2 [((0,1),'b'),((1,0),'a')]
 
 -- instance ShowChar String where
     -- showc [] = ' '

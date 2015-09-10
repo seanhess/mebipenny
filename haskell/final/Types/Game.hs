@@ -25,7 +25,6 @@ instance FromJSON GameState where
         gameState _ = mzero
     parseJSON _ = mzero
 
-
 data Game = Game
           { rows :: Int
           , cols :: Int
@@ -37,14 +36,6 @@ data Game = Game
           , playerId :: String
           , state :: GameState
           } deriving (Show, Eq, Generic)
-
--- instance FromJSON Game where
-    -- parseJSON (Object obj) = do
-      -- Game <$>
-      -- obj .: "rows" <*>
-      -- obj .: "cols" <*>
-      -- obj .: "draw_size" <*>
-      -- obj .: "claims" <*>
 
 playerById :: String -> [Player] -> Maybe Player
 playerById pid ps = find (\p -> Player.id p == pid) ps

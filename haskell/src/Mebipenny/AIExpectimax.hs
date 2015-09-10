@@ -12,6 +12,13 @@ type Probability = Double
 type Utility = Double
 type Distribution a = [(Probability, a)]
 
+
+-- TO IMPLEMENT
+-- utility :: a -> Utility
+-- distribution :: a -> Distribution a    ==    a -> [(Probability a)]
+-- allMoves :: a -> [a]
+-- hasMoves :: a -> Bool
+
 expectedUtility :: (a -> Utility) -> Distribution a -> Utility
 expectedUtility utility = sum . map expected
     where expected x = (fst x) * (utility $ snd x)
