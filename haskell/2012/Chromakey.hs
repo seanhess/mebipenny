@@ -1,6 +1,10 @@
-module Main where
+-- 1 hour for 2 points
 
+import Debug.Trace
 import System.IO
+
+import Data.Maybe (catMaybes)
+import Control.Monad
 
 -- GRID IMPORTS ----------------------------------------------------
 import Prelude hiding (lookup)
@@ -11,79 +15,128 @@ import qualified Data.List as L
 import qualified Data.Vector as V
 ---------------------------------------------------------------------
 
-type Width = Int
-type Height = Int
-type X = Int
-type Y = Int
+data RGB = RGB Int Int Int
+type Image = Grid RGB
 
-type Art = Grid Char
+instance Show RGB where
+    show (RGB r g b) = unwords [show r, show g, show b]
 
-data Rotation = R0 | R90 | R180 | R270
-              deriving (Show, Eq)
+sample :: Image
+sample = fromList (RGB 0 0 0)
+  [ [ RGB 75 35 5, RGB 15 255 35 ]
+  , [ RGB 12 46 35, RGB 16 48 5 ]
+  ]
 
-newtype Rotations = Rotations Int
-                  deriving (Show, Eq)
-
-rotations :: Int -> Rotations
-rotations deg = Rotations $ pos $ (deg `div` 90) `rem` 4
+pixelsForReplace :: Grid RGB -> [(Int, Int)]
+pixelsForReplace grid =
+  catMaybes $ concat $ toList $ imap each grid
   where
-    pos n
-      | n < 0 = n + 4
-      | otherwise = n
+    each r c rgb =
+      if needsReplace rgb
+        then Just (r, c)
+        else Nothing
 
-rotate :: Art -> Art
-rotate = rotateClockwise
+needsReplace :: RGB -> Bool
+needsReplace (RGB r g b) = g > (r + b)
 
-rotateN :: Rotations -> Art -> Art
-rotateN (Rotations n) art = iterate rotate art !! n
+getPixels :: [(Int, Int)] -> Grid RGB -> [((Int,Int), RGB)]
+getPixels locs g = zip locs $ map (g !) locs
 
-bounds :: Width -> Height -> ((X,Y), (X,Y))
-bounds w h = ((0,0),(w-1,h-1))
+chromakey :: Grid RGB -> Grid RGB -> Grid RGB
+chromakey first second =
+    let pxs = pixelsForReplace first
+        ups = getPixels pxs second
+    in update first ups
 
-charsHeight :: [[Char]] -> Int
-charsHeight = length
+-- replace all pixels in an image that fallin a certain color range
+-- with pixels from another image
 
-fromListArt :: [[Char]] -> Art
-fromListArt css = fromList ' ' css
+-- Line One: W
+-- Line Two: H
+-- R G B
+-- WXH lines for the first image
+-- WXH lines for the second image
 
-printChars :: [[Char]] -> IO ()
-printChars css = mapM_ putStrLn css
+-- each pixel in the first image,
+  -- where the green value is greater than the combined red and blue value
+  -- replace with the corresponding pixel in the second image
 
-example = [ "o...o"
-          , ".o.o."
-          , "..o.."
-          , "..o.."
-          , "..o.."
-          , "..o.."
-          ]
+rgb :: String -> RGB
+rgb xs =
+    let [r, g, b] = map read $ words xs
+    in RGB r g b
 
-example' = [ ".....o"
-           , "....o."
-           , "oooo.."
-           , "....o."
-           , ".....o"
-           ]
-
-example2 = [ "123", "456", "789" ]
-example3 = [ "123", "ABC" ]
-example4 = [ "123" ]
-example5 = [ "12", "AB" ]
-
---------------------------------------------------
+emptyRGB :: RGB
+emptyRGB = RGB 0 0 0
 
 test :: FilePath -> IO ()
 test p = openFile p ReadMode >>= run
 
+showImage :: Image -> String
+showImage g = L.intercalate "\n" $ map show $ concat $ toList g
+
+getImage :: Int -> Int -> Handle -> IO Image
+getImage width height h = do
+  rgbss <- replicateM width $ do
+    ps <- replicateM height (hGetLine h)
+    return $ map rgb ps
+  return $ fromList emptyRGB rgbss
+
 run :: Handle -> IO ()
 run h = do
-    deg <- read <$> hGetLine h
-    ls <- lines <$> hGetContents h
-    let art = fromListArt ls
-        art' = rotateN (rotations deg) art
-        out = toList art'
-    printChars out
+    width <- read <$> hGetLine h
+    height <- read <$> hGetLine h
+    let len = width * height
+    first <- getImage width height h
+    second <- getImage width height h
+    let ch = chromakey first second
+    putStrLn $ showImage ch
 
 main = run stdin
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -115,10 +168,7 @@ instance GShow Bool where
     gshow False = "O"
 
 (!) :: Grid a -> Location -> a
-grid ! loc =
-  case lookup loc grid of
-    Nothing -> error (show loc ++ " out of bounds")
-    Just v -> v
+grid ! loc = fromJust $ lookup loc grid
 
 (!?) :: Grid a -> Location -> Maybe a
 grid !? loc = lookup loc grid
@@ -153,23 +203,14 @@ lengthRows = V.length
 lengthCols :: Grid a -> Cols
 lengthCols grid = fromMaybe 0 $ V.length <$> (grid V.!? 0)
 
--- rotateClockwise :: Grid a -> Grid a
--- rotateClockwise m =
-  -- let (w', h') = dimensions m
-      -- w = h'
-      -- h = w'
-  -- in V.generate h $ \y ->
-      -- V.generate w $ \x ->
-        -- m ! (y, (w - x - 1))
-
 rotateClockwise :: Grid a -> Grid a
 rotateClockwise m =
-  let (oldRows, oldCols) = dimensions m
-      rows = oldCols
-      cols = oldRows
-  in V.generate rows $ \r ->
-      V.generate cols $ \c ->
-        m ! ((cols - c - 1), r)
+  let (w', h') = dimensions m
+      w = h'
+      h = w'
+  in V.generate h $ \y ->
+     V.generate w $ \x ->
+     m ! (y, (w - x - 1))
 
 update :: Grid a -> [(Location, a)] -> Grid a
 update g pairs =
@@ -219,4 +260,6 @@ padRow w p row =
 toList :: Grid a -> [[a]]
 toList grid = map V.toList $ V.toList grid
 ---------------------------------------------------------------------
+
+
 

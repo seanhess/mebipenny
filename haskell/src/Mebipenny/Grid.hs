@@ -3,7 +3,7 @@ module Mebipenny.Grid where
 -- GRID IMPORTS ----------------------------------------------------
 import Prelude hiding (lookup)
 import Data.Vector (Vector, (//))
-import Data.Maybe (fromMaybe)
+import Data.Maybe (fromMaybe, fromJust)
 import Data.Monoid ((<>))
 import qualified Data.List as L
 import qualified Data.Vector as V
@@ -38,7 +38,10 @@ instance GShow Bool where
     gshow False = "O"
 
 (!) :: Grid a -> Location -> a
-m ! (r, c) = m V.! c V.! r
+grid ! loc =
+  case lookup loc grid of
+    Nothing -> error (show loc ++ " out of bounds")
+    Just v -> v
 
 (!?) :: Grid a -> Location -> Maybe a
 grid !? loc = lookup loc grid
@@ -49,16 +52,6 @@ lookup (r, c) grid = do
   val <- row V.!? c
   return val
 
--- update :: Location -> a -> Grid a -> Grid a
--- update l v grid = bulkUpdate [(l, v)] grid
-
--- bulkUpdate :: [(Location, a)] -> Grid a -> Grid a
--- bulkUpdate lvs grid =
-    -- let valids = L.filter (\(loc, v) -> isValid grid loc) lvs
-        -- byRow = L.groupBy sameRow valids
-    -- in undefined
-  -- where
-    -- sameRow ((r1, c1), _) ((r2, c2), _)= r1 == r2
 
 isValid :: Grid a -> Location -> Bool
 isValid grid (r, c) =
@@ -71,8 +64,8 @@ isValidBounds len i = i >= 0 && i < len
 imap :: (Int -> Int -> a -> b) -> Grid a -> Grid b
 imap f grid = V.imap eachRow grid
   where
-    eachRow y row   = V.imap (eachCol y) row
-    eachCol y x val = f x y val
+    eachRow r row   = V.imap (eachCol r) row
+    eachCol r c val = f r c val
 
 dimensions :: Grid a -> (Rows, Cols)
 dimensions grid = (lengthRows grid, lengthCols grid)
@@ -83,14 +76,44 @@ lengthRows = V.length
 lengthCols :: Grid a -> Cols
 lengthCols grid = fromMaybe 0 $ V.length <$> (grid V.!? 0)
 
+-- rotateClockwise :: Grid a -> Grid a
+-- rotateClockwise m =
+  -- let (w', h') = dimensions m
+      -- w = h'
+      -- h = w'
+  -- in V.generate h $ \y ->
+      -- V.generate w $ \x ->
+        -- m ! (y, (w - x - 1))
+
 rotateClockwise :: Grid a -> Grid a
 rotateClockwise m =
-  let (w', h') = dimensions m
-      w = h'
-      h = w'
-  in V.generate h $ \y ->
-     V.generate w $ \x ->
-     m ! (y, (w - x - 1))
+  let (oldRows, oldCols) = dimensions m
+      rows = oldCols
+      cols = oldRows
+  in V.generate rows $ \r ->
+      V.generate cols $ \c ->
+        m ! ((cols - c - 1), r)
+
+update :: Grid a -> [(Location, a)] -> Grid a
+update g pairs =
+  -- you can't map, you don't which is which
+  let rowUps = L.map (updateRow g) $ L.groupBy sameRow pairs
+  in g // rowUps
+
+updateRow g pairs =
+  let r = (groupRow pairs)
+      row = g V.! r
+      cps = map toColumnPair pairs
+      row' = row // cps
+  in (r, row')
+
+toColumnPair p = (pairCol p, pairVal p)
+
+groupRow (p:ps) = pairRow p
+sameRow p1 p2 = pairRow p1 == pairRow p2
+pairRow ((r, _), _) = r
+pairCol ((_, c), _) = c
+pairVal (_, v) = v
 
 -- flips horizontal
 flipHorizontal :: Grid a -> Grid a

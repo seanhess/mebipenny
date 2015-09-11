@@ -29,13 +29,15 @@ data Game = Game
           { rows :: Int
           , cols :: Int
           -- tiles remaining in the draw pool
-          , drawSize :: Int
+          , draw_size :: Int
           -- claims made specifically, not missing
           , claims :: [Claim]
           , players :: [Player]
-          , playerId :: String
+          , player_id :: String
           , state :: GameState
           } deriving (Show, Eq, Generic)
+
+instance FromJSON Game
 
 playerById :: String -> [Player] -> Maybe Player
 playerById pid ps = find (\p -> Player.id p == pid) ps

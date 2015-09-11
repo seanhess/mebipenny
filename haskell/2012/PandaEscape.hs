@@ -30,11 +30,29 @@ type Cloud = Int
 comboWeight :: Empress -> [Guard] -> Int
 comboWeight e gs = e + sum gs
 
+-- I could avoid summing all of them maybe?
+-- just run through them until it equals zero
+-- and skip the rest of the array!
+-- basically we can stop summing as soon as we hit max
+
+-- prune: guards more than the max weight
 validCombos :: Cloud -> Empress -> [Guard] -> [[Guard]]
-validCombos c e gs = map (sortBy (flip compare)) $ filter (perfectWeight c e) $ subsequences gs
+validCombos c e gs =
+  let maxWeight = c - e
+      valid = filter (< maxWeight) gs
+  in
+  map (sortBy (flip compare)) $ filter (perfectWeight c e) $ subsequences valid
 
 perfectWeight :: Cloud -> Empress -> [Guard] -> Bool
-perfectWeight c e gs = comboWeight e gs == c
+perfectWeight c e gs = sumsToNum (c-e) gs
+    -- comboWeight e gs == c
+
+sumsToNum :: Int -> [Int] -> Bool
+sumsToNum 0 [] = True
+sumsToNum n [] = False
+sumsToNum n (x:xs)
+  | n < x = False
+  | otherwise = sumsToNum (n-x) xs
 
 -- but what if it is empty!
 bestSolution :: [[Guard]] -> Maybe [Guard]
@@ -76,8 +94,8 @@ runLine l = do
     case sol of
       Nothing -> putStrLn "NO SOLUTION"
       Just gs -> do
-        let sorted = sort gs
-        let out = unwords (map show sorted)
+        -- let sorted = sort gs
+        let out = unwords (map show gs)
         putStrLn out
 
 run :: Handle -> IO ()

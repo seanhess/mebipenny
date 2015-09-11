@@ -23,6 +23,8 @@ import Types.Game
 import Types.Player
 
 import Control.Exception
+import System.Environment
+import Actions
 
 -- test :: IO ()
 -- test = do
@@ -39,7 +41,12 @@ import Control.Exception
     -- print game
 
 main = do
-  let depth = 4
-  putStrLn ("WOOOT" ++ show depth)
-  let mv = bestMove depth sampleTurnState
-  print mv
+  args <- getArgs
+  case args of
+    "play":game:name:[] -> play game name
+    "create":r:c:[] -> do
+      createGame (NewGameRequest (read r) (read c) 2)
+      return ()
+
+    _ -> putStrLn "Usage: join /20303 alice or create 4 4"
+

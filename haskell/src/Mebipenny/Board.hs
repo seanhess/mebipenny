@@ -106,9 +106,9 @@ showBoard b =
   in "\n" ++ unlines (top : List.zipWith line [0..] lns)
 
   where
-    line n cs = show n ++ "|" ++ cs ++ " |"
+    line n cs = show (n `mod` 10) ++ "|" ++ cs ++ " |"
     showEach v = ' ' : showc v : ""
-    showNum n = '_' : show n
+    showNum n = '_' : show (n `mod` 10)
 
 instance (BoardPiece p, Loc l) => Show (Board l p) where
     show = showBoard

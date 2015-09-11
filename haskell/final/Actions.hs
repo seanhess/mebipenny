@@ -6,11 +6,12 @@ module Actions where
 
 import Control.Monad.State hiding (state)
 import Data.Monoid
+import Data.Maybe (listToMaybe)
 import Data.ByteString (ByteString)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
-import Engine
+import Solve
 import qualified Network.Wreq as Wreq
 import Network.Wreq
 import Network.HTTP.Client (HttpException, defaultManagerSettings, managerResponseTimeout)
@@ -34,6 +35,7 @@ import Control.Exception
 rootUrl = "http://localhost:9292"
 smallGame = NewGameRequest 4 4 2
 tokenHeader = "X-Turn-Token"
+maxDepth = 1
 
 second = 1000 * 1000
 opts = defaults & manager .~ Left (defaultManagerSettings { managerResponseTimeout = Just (1000 * second) } )
@@ -107,14 +109,18 @@ play gamePath name = do
 
 turn :: String -> String -> TurnToken -> Game -> IO (TurnToken, Game)
 turn gamePath playerId token game = do
+    putStrLn ""
+    putStrLn "Next Turn..."
     let tiles = Game.playerTiles playerId (Game.players game)
-    case bestMove playerId tiles (gameBoard game) of
+        state = gameTurnState game
+    case listToMaybe $ bestMove maxDepth state of
       Nothing -> do
         putStrLn "NO MOVE"
         return $ (token, game)
 
-      Just (score, tile) -> do
-        putStrLn ("BEST MOVE: " ++ show score ++ " " ++ show tile)
+      Just tile -> do
+        putStrLn ("Selected: " ++ show tile)
+        -- putStrLn ("BEST MOVE: " ++ show score ++ " " ++ show tile)
         (token, delta) <- playMove gamePath token (Move tile playerId)
         let game' = applyDelta delta game
         return (token, game')
@@ -130,59 +136,64 @@ match name = do
 turns :: String -> String -> TurnToken -> Game -> IO ()
 turns gamePath playerId token game = do
     (token', game') <- turn gamePath playerId token game
-    if state game' == Completed
-      then putStrLn "COMPLETE"
-      else turns gamePath playerId token' game'
+    putStrLn "TURN"
+    print (board $ gameTurnState game)
+
+    if Game.state game' == Completed
+      then do
+        putStrLn "COMPLETE"
+
+      else do
+        turns gamePath playerId token' game'
 
 -------------------------------------------------------------------------------------
 
+-- data ActionState = ActionState
+  -- { playerId :: PlayerId
+  -- , gamePath :: String
+  -- , turnToken :: TurnToken
+  -- , game :: Game
+  -- } deriving (Show, Eq)
 
-data TurnState = TurnState
-  { playerId :: PlayerId
-  , gamePath :: String
-  , turnToken :: TurnToken
-  , game :: Game
-  } deriving (Show, Eq)
+-- setToken :: TurnToken -> ActionState -> ActionState
+-- setToken tok s = s { turnToken = tok }
 
-setToken :: TurnToken -> TurnState -> TurnState
-setToken tok s = s { turnToken = tok }
+-- setGame :: Game -> ActionState -> ActionState
+-- setGame g s = s { game = g }
 
-setGame :: Game -> TurnState -> TurnState
-setGame g s = s { game = g }
+-- newtype GameIO a = GameIO
+  -- { unGame :: StateT ActionState IO a }
+  -- deriving (Monad, Functor, Applicative, MonadIO, MonadState ActionState)
 
-newtype GameIO a = GameIO
-  { unGame :: StateT TurnState IO a }
-  deriving (Monad, Functor, Applicative, MonadIO, MonadState TurnState)
+-- -- the problem is I don't know the game path yet, so I can't initialize the game state until afterward
 
--- the problem is I don't know the game path yet, so I can't initialize the game state until afterward
+-- turn' :: GameIO ()
+-- turn' = do
+    -- g <- gets game
+    -- pid <- gets playerId
+    -- let tiles = Game.playerTiles pid (Game.players g)
+    -- case bestMove pid tiles (gameBoard g) of
+      -- Nothing -> do
+        -- liftIO $ putStrLn "NO MOVE"
+        -- return ()
 
-turn' :: GameIO ()
-turn' = do
-    g <- gets game
-    pid <- gets playerId
-    let tiles = Game.playerTiles pid (Game.players g)
-    case bestMove pid tiles (gameBoard g) of
-      Nothing -> do
-        liftIO $ putStrLn "NO MOVE"
-        return ()
+      -- Just (score, tile) -> do
+        -- liftIO $ putStrLn ("BEST MOVE: " ++ show score ++ " " ++ show tile)
+        -- playMove' (Move tile pid)
 
-      Just (score, tile) -> do
-        liftIO $ putStrLn ("BEST MOVE: " ++ show score ++ " " ++ show tile)
-        playMove' (Move tile pid)
+-- playMove' :: Move -> GameIO ()
+-- playMove' move = do
+    -- tok <- gets turnToken
+    -- gp <- gets gamePath
+    -- (token, game) <- liftIO $ playMove gp tok move
+    -- saveDelta game
+    -- saveToken token
 
-playMove' :: Move -> GameIO ()
-playMove' move = do
-    tok <- gets turnToken
-    gp <- gets gamePath
-    (token, game) <- liftIO $ playMove gp tok move
-    saveDelta game
-    saveToken token
+-- saveDelta :: GameDelta -> GameIO ()
+-- saveDelta delta = modify (\s -> setGame (applyDelta delta (game s)) s)
 
-saveDelta :: GameDelta -> GameIO ()
-saveDelta delta = modify (\s -> setGame (applyDelta delta (game s)) s)
-
-saveToken :: TurnToken -> GameIO ()
-saveToken tok = modify (setToken tok)
+-- saveToken :: TurnToken -> GameIO ()
+-- saveToken tok = modify (setToken tok)
 
 -- would this have made more sense as State?
 -- StateT ActionState IO ()

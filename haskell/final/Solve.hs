@@ -54,11 +54,11 @@ setDrawSize n s = s { drawSize = n }
 
 gameTurnState :: Game -> TurnState
 gameTurnState g =
-  let p = Game.playerId g
+  let p = Game.player_id g
   in TurnState
     (claimsBoard (Game.rows g) (Game.cols g) (Game.claims g))
     (Game.playerTiles p $ Game.players g)
-    (Game.drawSize g)
+    (Game.draw_size g)
     (List.map Player.id $ Game.players g)
     (p)
     (Game.state g)
