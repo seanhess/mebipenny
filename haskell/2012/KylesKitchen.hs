@@ -16,8 +16,6 @@ import qualified Data.List as L
 import qualified Data.Vector as V
 ---------------------------------------------------------------------
 
-import Woot (woot)
-
 type X = Int
 type Y = Int
 type W = Int
@@ -77,14 +75,12 @@ placements g t =
     let (w, h) = dimensions g
     in filter isValidPlacement $ catMaybes $ map (placeTileAt t g) $ allPositions w h
 
-placementsAllPerms :: Grid -> Tile -> [Grid]
-placementsAllPerms g t = concat $ map (placements g) $ tilePermutations t
+placementsAllPerms :: Grid -> [Tile] -> [Grid]
+placementsAllPerms g tperms = concat $ map (placements g) $ tperms
 
 isValidPlacement :: Grid -> Bool
 isValidPlacement (Matrix m) = V.all (V.all (<2)) m
 
--- tile, all rotations
--- flip, all rotations
 tilePermutations :: Tile -> [Tile]
 tilePermutations t = nub $ tileAllRotations t <> tileAllRotations (matrixFlipHorizontal t) <> tileAllRotations (matrixFlipVertical t)
 
@@ -93,16 +89,17 @@ tileAllRotations t = (take 4 $ iterate matrixRotate t)
 
 maxTiles :: Grid -> [Tile] -> Int
 maxTiles g ts =
-    let tss = subsequences ts
+    let tps = map tilePermutations ts
+        tss = subsequences tps
         gs = map (\ts -> placeAllTiles ts g) tss
         scores = map (uncurry scoreGrid) $ zip tss gs
     in maximum scores
 
-scoreGrid :: [Tile] -> [Grid] -> Int
+scoreGrid :: [[Tile]] -> [Grid] -> Int
 scoreGrid _ [] = 0
 scoreGrid ts _ = length ts
 
-placeAllTiles :: [Tile] -> Grid -> [Grid]
+placeAllTiles :: [[Tile]] -> Grid -> [Grid]
 placeAllTiles []     g = [g]
 placeAllTiles (t:ts) g =
     let gs = placementsAllPerms g t

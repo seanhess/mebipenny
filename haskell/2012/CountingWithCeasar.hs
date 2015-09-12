@@ -69,4 +69,4 @@ main = do
     contents <- getContents
     let ns = map read $ lines contents
         numerals = map romanNumerals ns
-    mapM_ print numerals
+    mapM_ putStrLn numerals

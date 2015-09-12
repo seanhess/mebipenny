@@ -1,4 +1,9 @@
-module Mebipenny.Grid where
+module Main where
+
+import Control.Applicative
+import Control.Monad
+import System.IO
+
 
 -- GRID IMPORTS ----------------------------------------------------
 import Prelude hiding (lookup)
@@ -9,6 +14,35 @@ import qualified Data.List as L
 import qualified Data.Vector as V
 ---------------------------------------------------------------------
 
+-- this is a matrix w = h!
+topDiagonal :: Grid a -> [Location]
+topDiagonal g = map (\n -> (n,n)) [0..(lengthRows g)-1]
+
+bottomDiagonal :: Grid a -> [Location]
+bottomDiagonal g =
+    let max = (lengthRows g) - 1
+    in map (\n -> (max-n,n)) [0..max]
+
+sumLocations :: Grid Int -> [Location]  -> Int
+sumLocations g ls = sum $ map (g !) ls
+
+diagonalDifference :: Grid Int -> Int
+diagonalDifference g = abs $ (sumLocations g $ topDiagonal g) - (sumLocations g $ bottomDiagonal g)
+
+
+test :: FilePath -> IO ()
+test p = openFile p ReadMode >>= run
+
+run :: Handle -> IO ()
+run h = do
+  n <- read <$> hGetLine h
+  ls <- replicateM n (hGetLine h)
+  let ns = map (map read . words) ls :: [[Int]]
+      g = fromList 0 ns
+      d = diagonalDifference g
+  print d
+
+main = run stdin
 
 -- GRID FUNCTIONS --------------------------------------------------
 type Col = Int
@@ -118,9 +152,6 @@ flipVertical grid = V.reverse grid
 fromList :: a -> [[a]] -> Grid a
 fromList def rows = pad def $ V.fromList (map V.fromList rows)
 
-fromIntList = fromList 0
-fromStrList = fromList ' '
-
 empty :: Int -> Int -> a -> Grid a
 empty w h def = V.replicate h (V.replicate w def)
 
@@ -137,13 +168,5 @@ padRow w p row =
 
 toList :: Grid a -> [[a]]
 toList grid = map V.toList $ V.toList grid
-
-adjacent :: Grid a -> Location -> [Location]
-adjacent g (r, c) =
-    L.filter (isValid g)
-    [          (r+1, c)
-    , (r, c-1),          (r, c+1)
-    ,          (r-1, c)
-    ]
 ---------------------------------------------------------------------
 

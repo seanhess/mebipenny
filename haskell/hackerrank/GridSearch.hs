@@ -1,4 +1,8 @@
-module Mebipenny.Grid where
+import System.IO
+
+import Data.Char
+import Control.Applicative
+import Control.Monad
 
 -- GRID IMPORTS ----------------------------------------------------
 import Prelude hiding (lookup)
@@ -8,6 +12,80 @@ import Data.Monoid ((<>))
 import qualified Data.List as L
 import qualified Data.Vector as V
 ---------------------------------------------------------------------
+
+gridContains :: Eq a => Grid a -> Grid a -> Bool
+gridContains big small = any (gridContainsAt big small) $ allLocations big
+
+gridContainsAt :: Eq a => Grid a -> Grid a -> (Int, Int) -> Bool
+gridContainsAt big small (r, c) =
+    all (gridMatchesAt big small (r, c)) $ allLocations small
+
+gridMatchesAt :: Eq a => Grid a -> Grid a -> (Int, Int) -> (Int, Int) -> Bool
+gridMatchesAt big small (r, c) (or, oc) =
+    let bigLoc = (r+or, c+oc)
+        smallLoc = (or, oc)
+    in big !? bigLoc == small !? smallLoc
+
+-- I could have done this with imap too!
+allLocations :: Grid a -> [(Int, Int)]
+allLocations g = do
+    let (rows, cols) = dimensions g
+    r <- [0..rows-1]
+    c <- [0..cols-1]
+    return (r, c)
+
+
+big = fromList ' ' ["123","456","789"]
+small = fromList ' ' ["23","56"]
+small' = fromList ' ' ["23","89"]
+
+testFile :: FilePath -> IO ()
+testFile p = openFile p ReadMode >>= run
+
+test = testFile "test.txt"
+
+getGrid :: Handle -> IO (Grid Int)
+getGrid h = do
+    mnl <- hGetLine h
+    let [r, c] = map read $ words mnl
+    mlines <- replicateM r (hGetLine h)
+    let nss = map (map digitToInt) mlines :: [[Int]]
+    return $ fromList 0 nss
+
+boolOut False = "NO"
+boolOut True = "YES"
+
+run :: Handle -> IO ()
+run h = do
+    t <- read <$> hGetLine h
+    inputs <- replicateM t $ do
+      big <- getGrid h
+      small <- getGrid h
+      return (big, small)
+    let outs = map (\(b,s) -> boolOut $ gridContains b s) inputs
+    mapM_ putStrLn outs
+
+main = run stdin
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 -- GRID FUNCTIONS --------------------------------------------------
@@ -118,9 +196,6 @@ flipVertical grid = V.reverse grid
 fromList :: a -> [[a]] -> Grid a
 fromList def rows = pad def $ V.fromList (map V.fromList rows)
 
-fromIntList = fromList 0
-fromStrList = fromList ' '
-
 empty :: Int -> Int -> a -> Grid a
 empty w h def = V.replicate h (V.replicate w def)
 
@@ -137,13 +212,5 @@ padRow w p row =
 
 toList :: Grid a -> [[a]]
 toList grid = map V.toList $ V.toList grid
-
-adjacent :: Grid a -> Location -> [Location]
-adjacent g (r, c) =
-    L.filter (isValid g)
-    [          (r+1, c)
-    , (r, c-1),          (r, c+1)
-    ,          (r-1, c)
-    ]
 ---------------------------------------------------------------------
 

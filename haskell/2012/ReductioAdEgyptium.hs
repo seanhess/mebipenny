@@ -21,9 +21,10 @@ denominators = [1..]
 egyptian :: Rational -> [Rational]
 egyptian r = go fractions r
   where
+    go _ 0 = []
     go (f:fs) curr
-      | f == curr = [f]
-      | f < curr  = f : go fs (curr - f)
+      | f <= curr = f : go fs (curr - f)
+      -- | f < curr  = f : go fs (curr - f)
       | otherwise = go fs curr
 
 test :: FilePath -> IO ()

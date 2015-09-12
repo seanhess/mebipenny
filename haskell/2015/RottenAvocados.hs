@@ -1,13 +1,200 @@
-module Mebipenny.Grid where
+module Main where
 
--- GRID IMPORTS ----------------------------------------------------
 import Prelude hiding (lookup)
+import System.IO
+import Data.Char
+import Data.List as List hiding (lookup)
+import qualified Data.List.Split as List
+import Debug.Trace
+import Control.Monad
+import Data.Maybe
+import Data.Monoid ((<>), mconcat)
+import qualified Data.HashMap.Strict as HashMap
+import Data.HashMap.Strict (HashMap)
+import qualified Data.Vector as Vector
 import Data.Vector (Vector, (//))
-import Data.Maybe (fromMaybe, fromJust)
-import Data.Monoid ((<>))
+import Data.Function (on)
 import qualified Data.List as L
 import qualified Data.Vector as V
----------------------------------------------------------------------
+
+rotten :: Int
+rotten = 2
+
+good :: Int
+good = 1
+
+blank :: Int
+blank = 0
+
+oneDay :: Grid Int -> Grid Int
+oneDay g =
+    -- let rs = newRottenLocations g
+        -- ups = map (\l -> (l, rotten)) rs
+    -- in update g ups
+    imap (eachAvocado g) g
+
+eachAvocado :: Grid Int -> Int -> Int -> Int -> Int
+eachAvocado g r c 1 =
+  if any (isRotten g) (adjacent g (r, c))
+    then 2
+    else 1
+eachAvocado g r c n = n
+
+isRotten :: Grid Int -> Location -> Bool
+isRotten g l =
+  case g !? l of
+    (Just 2) -> True
+    _ -> False
+
+-- newRottenLocations :: Grid Int -> [Location]
+-- newRottenLocations g =
+  -- let rs = imap each g :: Grid (Maybe [Location])
+  -- in concat . catMaybes . concat . toList $ rs
+  -- where
+    -- -- only rottenize them if they contain a good one!
+    -- each r c 2 = Just $ filter isGood $ adjacent g (r, c)
+    -- each _ _ _ = Nothing
+
+
+everyDay :: Grid Int -> [Grid Int]
+everyDay g = removeDupTail $ List.iterate oneDay g
+
+allRotten :: Grid Int -> Bool
+allRotten g = not $ any (==1) $ concat $ toList g
+
+sample :: Grid Int
+sample = fromIntList
+  [ [2, 1, 0, 2, 1]
+  , [1, 0, 1, 2, 1]
+  , [1, 0, 0, 2, 1]
+  ]
+
+-- uh oh, the whole bunch might not be bad!
+-- I need to remove the end of the array somehow
+
+removeDupTail :: Eq a => [a] -> [a]
+removeDupTail [] = []
+removeDupTail [a] = [a]
+removeDupTail (a:b:xs)
+  | a == b = [a]
+  | otherwise = a : removeDupTail (b:xs)
+
+daysTillAllBad :: Grid Int -> Int
+daysTillAllBad g =
+  let days = everyDay g
+      goodDays = List.takeWhile (not . allRotten) days
+  in
+  if length goodDays == length days
+    then -1
+    else length goodDays
+
+testFile :: FilePath -> IO ()
+testFile p = openFile p ReadMode >>= run
+
+test = testFile "test.txt"
+
+run :: Handle -> IO ()
+run h = do
+    n <- parseInt <$> hGetLine h
+    nss <- map parseInts <$> getLines h :: IO [[Int]]
+    let g = fromIntList nss
+        d = daysTillAllBad g
+    print d
+
+    return ()
+
+
+---------------------------------------------------------
+-- reading
+
+getLines :: Handle -> IO [String]
+getLines h = lines <$> hGetContents h
+
+getNLines :: Handle -> Int -> IO [String]
+getNLines h n = replicateM n (hGetLine h)
+
+-- plus hGetLine h!
+
+----------------------------------------------------------
+-- parsing
+
+parseReads :: Read a => String -> [a]
+parseReads = map read . words
+
+parseInts :: String -> [Int]
+parseInts = parseReads
+
+parseInt :: String -> Int
+parseInt = read
+
+parseWords :: String -> [String]
+parseWords = words
+
+main = run stdin
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 -- GRID FUNCTIONS --------------------------------------------------

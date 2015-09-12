@@ -1,13 +1,150 @@
-module Mebipenny.Grid where
+module Main where
 
--- GRID IMPORTS ----------------------------------------------------
 import Prelude hiding (lookup)
+import System.IO
+import Data.Char
+import Data.List as List hiding (lookup)
+import qualified Data.List.Split as List
+import Debug.Trace
+import Control.Monad
+import Data.Maybe
+import Data.Monoid ((<>), mconcat)
+import qualified Data.HashMap.Strict as HashMap
+import Data.HashMap.Strict (HashMap)
+import qualified Data.Vector as Vector
 import Data.Vector (Vector, (//))
-import Data.Maybe (fromMaybe, fromJust)
-import Data.Monoid ((<>))
+import Data.Function (on)
 import qualified Data.List as L
 import qualified Data.Vector as V
----------------------------------------------------------------------
+
+type Column = Int
+type Columns = [Int]
+
+contains :: [Int] -> Int -> Column -> Int
+contains cs index c =
+    let (before, rest) = splitAt index cs
+        after = drop 1 rest
+        height = minimum [maxHeight before, maxHeight after]
+    in maximum [height - c, 0]
+
+-- I need the index too!
+maxHeight :: [Int] -> Int
+maxHeight [] = 0
+maxHeight cs = maximum cs
+
+holds :: [Int] -> Int
+holds cs = sum $ zipWith (contains cs) [0..] cs
+
+sample :: [Int]
+sample = [2, 0, 0, 3, 0, 4]
+
+testFile :: FilePath -> IO ()
+testFile p = openFile p ReadMode >>= run
+
+test = testFile "test.txt"
+
+run :: Handle -> IO ()
+run h = do
+    ns <- parseInts <$> hGetLine h :: IO [Int]
+    let hold = holds ns
+    print hold
+    -- let outs = map (showResult . result) nss
+    -- mapM_ putStrLn outs
+
+    return ()
+
+
+---------------------------------------------------------
+-- reading
+
+getLines :: Handle -> IO [String]
+getLines h = lines <$> hGetContents h
+
+getNLines :: Handle -> Int -> IO [String]
+getNLines h n = replicateM n (hGetLine h)
+
+-- plus hGetLine h!
+
+----------------------------------------------------------
+-- parsing
+
+parseReads :: Read a => String -> [a]
+parseReads = map read . words
+
+parseInts :: String -> [Int]
+parseInts = parseReads
+
+parseInt :: String -> Int
+parseInt = read
+
+parseWords :: String -> [String]
+parseWords = words
+
+main = run stdin
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 -- GRID FUNCTIONS --------------------------------------------------
@@ -137,13 +274,5 @@ padRow w p row =
 
 toList :: Grid a -> [[a]]
 toList grid = map V.toList $ V.toList grid
-
-adjacent :: Grid a -> Location -> [Location]
-adjacent g (r, c) =
-    L.filter (isValid g)
-    [          (r+1, c)
-    , (r, c-1),          (r, c+1)
-    ,          (r-1, c)
-    ]
 ---------------------------------------------------------------------
 

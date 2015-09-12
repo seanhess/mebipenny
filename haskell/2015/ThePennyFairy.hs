@@ -1,13 +1,148 @@
-module Mebipenny.Grid where
+module Main where
 
--- GRID IMPORTS ----------------------------------------------------
 import Prelude hiding (lookup)
+import System.IO
+import Data.Char
+import Data.List as List hiding (lookup)
+import qualified Data.List.Split as List
+import Debug.Trace
+import Control.Monad
+import Data.Maybe
+import Data.Monoid ((<>), mconcat)
+import qualified Data.HashMap.Strict as HashMap
+import Data.HashMap.Strict (HashMap)
+import qualified Data.Vector as Vector
 import Data.Vector (Vector, (//))
-import Data.Maybe (fromMaybe, fromJust)
-import Data.Monoid ((<>))
+import Data.Function (on)
 import qualified Data.List as L
 import qualified Data.Vector as V
----------------------------------------------------------------------
+
+growth :: Int -> Int -> Float
+growth yesterday today = (fromIntegral today) / (fromIntegral yesterday)
+
+grow :: Float -> Int -> Int
+grow gr today = ceiling $ (fromIntegral today) * gr
+
+pattern :: Float -> Int -> [Int]
+pattern gr start = List.iterate (grow gr) start
+
+days :: [Int] -> Int -> Int
+days pt max = length $ takeWhile (< max) pt
+
+result :: Int -> Int -> Int -> Int
+result yes today max = days (pattern (growth yes today) today) max
+
+testFile :: FilePath -> IO ()
+testFile p = openFile p ReadMode >>= run
+
+test = testFile "test.txt"
+
+run :: Handle -> IO ()
+run h = do
+    y <- parseInt <$> hGetLine h
+    t <- parseInt <$> hGetLine h
+    m <- parseInt <$> hGetLine h
+    let r = result y t m
+    print r
+
+    -- nss <- map parseInts <$> getLines h :: IO [[Int]]
+    -- let outs = map (showResult . result) nss
+    -- mapM_ putStrLn outs
+
+    return ()
+
+
+---------------------------------------------------------
+-- reading
+
+getLines :: Handle -> IO [String]
+getLines h = lines <$> hGetContents h
+
+getNLines :: Handle -> Int -> IO [String]
+getNLines h n = replicateM n (hGetLine h)
+
+-- plus hGetLine h!
+
+----------------------------------------------------------
+-- parsing
+
+parseReads :: Read a => String -> [a]
+parseReads = map read . words
+
+parseInts :: String -> [Int]
+parseInts = parseReads
+
+parseInt :: String -> Int
+parseInt = read
+
+parseWords :: String -> [String]
+parseWords = words
+
+main = run stdin
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 -- GRID FUNCTIONS --------------------------------------------------
@@ -137,13 +272,5 @@ padRow w p row =
 
 toList :: Grid a -> [[a]]
 toList grid = map V.toList $ V.toList grid
-
-adjacent :: Grid a -> Location -> [Location]
-adjacent g (r, c) =
-    L.filter (isValid g)
-    [          (r+1, c)
-    , (r, c-1),          (r, c+1)
-    ,          (r-1, c)
-    ]
 ---------------------------------------------------------------------
 

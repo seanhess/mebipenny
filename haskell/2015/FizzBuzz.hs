@@ -1,13 +1,146 @@
-module Mebipenny.Grid where
+module Main where
 
--- GRID IMPORTS ----------------------------------------------------
 import Prelude hiding (lookup)
+import System.IO
+import Data.Char
+import Data.List as List hiding (lookup)
+import qualified Data.List.Split as List
+import Debug.Trace
+import Control.Monad
+import Data.Maybe
+import Data.Monoid ((<>), mconcat)
+import qualified Data.HashMap.Strict as HashMap
+import Data.HashMap.Strict (HashMap)
+import qualified Data.Vector as Vector
 import Data.Vector (Vector, (//))
-import Data.Maybe (fromMaybe, fromJust)
-import Data.Monoid ((<>))
+import Data.Function (on)
 import qualified Data.List as L
 import qualified Data.Vector as V
----------------------------------------------------------------------
+
+fizzBuzz :: Int -> Int -> Int -> [String]
+fizzBuzz f b xs = map (num f b) [1..xs]
+
+num :: Int -> Int -> Int -> String
+num f b x
+  | isFizz && isBuzz = "FizzBuzz"
+  | isFizz = "Fizz"
+  | isBuzz = "Buzz"
+  | otherwise = (show x)
+
+  where
+    isFizz = x `mod` f == 0
+    isBuzz = x `mod` b == 0
+
+
+
+testFile :: FilePath -> IO ()
+testFile p = openFile p ReadMode >>= run
+
+test = testFile "test.txt"
+
+run :: Handle -> IO ()
+run h = do
+    n <- parseInt <$> hGetLine h
+    f <- parseInt <$> hGetLine h
+    b <- parseInt <$> hGetLine h
+    mapM putStrLn $ fizzBuzz f b n
+    -- let outs = map (showResult . result) nss
+    -- mapM_ putStrLn outs
+
+    return ()
+
+
+---------------------------------------------------------
+-- reading
+
+getLines :: Handle -> IO [String]
+getLines h = lines <$> hGetContents h
+
+getNLines :: Handle -> Int -> IO [String]
+getNLines h n = replicateM n (hGetLine h)
+
+-- plus hGetLine h!
+
+----------------------------------------------------------
+-- parsing
+
+parseReads :: Read a => String -> [a]
+parseReads = map read . words
+
+parseInts :: String -> [Int]
+parseInts = parseReads
+
+parseInt :: String -> Int
+parseInt = read
+
+parseWords :: String -> [String]
+parseWords = words
+
+main = run stdin
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 -- GRID FUNCTIONS --------------------------------------------------
@@ -137,13 +270,5 @@ padRow w p row =
 
 toList :: Grid a -> [[a]]
 toList grid = map V.toList $ V.toList grid
-
-adjacent :: Grid a -> Location -> [Location]
-adjacent g (r, c) =
-    L.filter (isValid g)
-    [          (r+1, c)
-    , (r, c-1),          (r, c+1)
-    ,          (r-1, c)
-    ]
 ---------------------------------------------------------------------
 
